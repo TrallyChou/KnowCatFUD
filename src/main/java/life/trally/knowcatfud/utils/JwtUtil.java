@@ -1,24 +1,13 @@
 package life.trally.knowcatfud.utils;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
-import java.security.Key;
-import java.util.Date;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 
 import javax.crypto.SecretKey;
-import java.security.Key;
 import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +39,7 @@ public class JwtUtil {
         Date expiration = new Date(now.getTime() + unit.toMillis(duration));
 
         return Jwts.builder()
-//                .claims(claims) // 新版API使用.claims()方法
+                .claims(claims) // 新版API使用.claims()方法
                 .subject(subject)
                 .issuedAt(now)
                 .expiration(expiration)
@@ -96,4 +85,5 @@ public class JwtUtil {
         Claims claims = parseToken(token);
         return generateToken(claims, claims.getSubject(), newDuration, unit);
     }
+
 }

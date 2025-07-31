@@ -5,7 +5,7 @@ import lombok.Data;
 
 @AllArgsConstructor
 @Data
-public class ServiceResult<V,T> {
-    private V result;
-    private T data;
+public class ServiceResult<RESULT,DATA> {
+    private RESULT result;
+    private DATA data;
 }

@@ -25,6 +25,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
+import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
+
 @Service
 public class FileServiceImpl implements FileService {
 
@@ -154,18 +156,6 @@ public class FileServiceImpl implements FileService {
 
     }
 
-    // 访问检验
-    private boolean checkAccess(String token, String username) {
-        // 这里暂时使用每次都解析
 
-        try {
-            LoginUser user = JSON.parseObject(JwtUtil.parseToken(token).getSubject(), LoginUser.class);
-            return user.getUsername().equals(username);
-        } catch (Exception e) {
-            return false;
-
-        }
-
-    }
 
 }
