@@ -1,5 +1,6 @@
 package life.trally.knowcatfud.service.interfaces;
 
+import life.trally.knowcatfud.pojo.ShareInfo;
 import life.trally.knowcatfud.service.ServiceResult;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -7,15 +8,19 @@ import org.springframework.http.ResponseEntity;
 public interface FileShareService {
 
     enum Result {
-        SHARE_SUCCESS,
-        SHARE_FAILED,
+        SUCCESS,
+        FILED,
         SHARE_NOT_FOUND,
         ALREADY_SHARED,
-        INVALID_ACCESS
+        INVALID_ACCESS,
+        ALREADY_LIKE
     }
 
-    ServiceResult<Result, String> share(String token, String username, String path);
+    ServiceResult<Result, String> share(String token, String username, String path, ShareInfo shareInfo);
 
-    ResponseEntity<Resource> download(String userPath);
+    ResponseEntity<Resource> download(String shareUUID, String password);
 
+    Result like(String shareUUID);
+
+    ServiceResult<Result,Object> getLikeRanking();
 }
