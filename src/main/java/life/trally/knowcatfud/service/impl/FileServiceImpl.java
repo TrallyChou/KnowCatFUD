@@ -7,6 +7,7 @@ import life.trally.knowcatfud.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.FilePathInfo;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileService;
+import life.trally.knowcatfud.service.interfaces.UserFileDownloadService;
 import life.trally.knowcatfud.utils.FileUtil;
 import life.trally.knowcatfud.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,10 @@ public class FileServiceImpl implements FileService {
 
     @Autowired
     FilePathInfoMapper filePathInfoMapper;
+
+    @Autowired
+    UserFileDownloadService userFileDownloadService;
+
 
     @Override
     public Result uploadOrMkdir(String token, String username, MultipartFile multipartFile, FilePathInfo filePathInfo) {
@@ -123,13 +128,7 @@ public class FileServiceImpl implements FileService {
         qw.eq("user_path", queryPath);
         FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
         try {
-            String fileName = filePathInfo.getHash() + filePathInfo.getSize();
-            Path filePath = Paths.get("files/", fileName);
-            Resource resource = new UrlResource(filePath.toUri());
-            HttpHeaders headers = new HttpHeaders();
-            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\""
-                    + StringUtils.getFilename(queryPath) + "\"");
-            return ResponseEntity.ok().headers(headers).contentType(MediaType.APPLICATION_OCTET_STREAM).body(resource);
+            return userFileDownloadService.download(filePathInfo);
         } catch (Exception e) {
             return null;
         }

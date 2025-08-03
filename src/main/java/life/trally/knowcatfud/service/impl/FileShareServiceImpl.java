@@ -7,6 +7,7 @@ import life.trally.knowcatfud.pojo.FilePathInfo;
 import life.trally.knowcatfud.pojo.ShareInfo;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
+import life.trally.knowcatfud.service.interfaces.UserFileDownloadService;
 import life.trally.knowcatfud.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Set;
@@ -33,6 +35,10 @@ public class FileShareServiceImpl implements FileShareService {
 
     @Autowired
     RedisUtil redisUtil;
+
+    @Autowired
+    UserFileDownloadService userFileDownloadService;
+
 
     @Override
     public ServiceResult<Result, String> share(String token, String username, String path, ShareInfo shareInfo) {
@@ -100,20 +106,13 @@ public class FileShareServiceImpl implements FileShareService {
             QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
             qw.eq("user_path", fileUserPath);
             FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
-
-            String fileName = filePathInfo.getHash() + filePathInfo.getSize();
-            Path filePath = Paths.get("files/", fileName);
-            Resource resource = new UrlResource(filePath.toUri());
-            HttpHeaders headers = new HttpHeaders();
-            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\""
-                    + StringUtils.getFilename(fileUserPath) + "\"");
-            return ResponseEntity.ok().headers(headers).contentType(MediaType.APPLICATION_OCTET_STREAM).body(resource);
-
+            return userFileDownloadService.download(filePathInfo);
         } catch (Exception e) {
             return null;
         }
 
     }
+
 
     @Override
     public Result like(String shareUUID) {
