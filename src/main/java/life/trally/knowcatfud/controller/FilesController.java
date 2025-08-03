@@ -62,8 +62,9 @@ public class FilesController {
     public ResponseEntity<Resource> download(
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
-            @PathVariable String path) {
-        return fileService.download(token, username, path);
+            @PathVariable String path,
+            @RequestHeader(value = "Range", required = false) String rangeHeader) {
+        return fileService.download(token, username, path, rangeHeader);
     }
 
     // 文件删除
@@ -72,11 +73,11 @@ public class FilesController {
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
             @PathVariable String path
-    ){
+    ) {
 
-        return switch (fileService.delete(token,username,path)){
+        return switch (fileService.delete(token, username, path)) {
             case FILE_SUCCESS -> R.ok().message("文件删除成功");
-            case DIR_SUCCESS ->  R.ok().message("目录删除成功");
+            case DIR_SUCCESS -> R.ok().message("目录删除成功");
             case FILE_NOT_FOUND -> R.ok().message("文件不存在");
             case DELETE_FAILED -> R.error().message("删除失败");
             case INVALID_ACCESS -> R.error().message("非法访问");

@@ -11,17 +11,10 @@ import life.trally.knowcatfud.service.interfaces.UserFileDownloadService;
 import life.trally.knowcatfud.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.data.redis.core.ZSetOperations;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
-import java.net.MalformedURLException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Set;
 import java.util.UUID;
 
@@ -90,7 +83,7 @@ public class FileShareServiceImpl implements FileShareService {
     }
 
     @Override
-    public ResponseEntity<Resource> download(String shareUUID, String password) {
+    public ResponseEntity<Resource> download(String shareUUID, String password, String rangeHeader) {
         String passwd = redisUtil.hGet("share:uuid_info:" + shareUUID, "password");
         String fileUserPath = null;
 
@@ -106,7 +99,7 @@ public class FileShareServiceImpl implements FileShareService {
             QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
             qw.eq("user_path", fileUserPath);
             FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
-            return userFileDownloadService.download(filePathInfo);
+            return userFileDownloadService.download(filePathInfo, rangeHeader);
         } catch (Exception e) {
             return null;
         }

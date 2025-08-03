@@ -39,12 +39,13 @@ public class FilesShareController {
     @GetMapping(value = "/share/{shareUUID}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<Resource> download(
             @PathVariable String shareUUID,
-            @RequestParam @Nullable String password) {
+            @RequestParam @Nullable String password,
+            @RequestHeader(value = "Range", required = false) String rangeHeader) {
 
         // TODO:
         // 1. 放行未登录用户，允许其下载
 
-        return fileShareService.download(shareUUID, password);
+        return fileShareService.download(shareUUID, password, rangeHeader);
     }
 
     // 点赞

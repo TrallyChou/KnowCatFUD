@@ -1,20 +1,14 @@
 package life.trally.knowcatfud.service.impl;
 
-import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import life.trally.knowcatfud.dao.FilePathInfoMapper;
-import life.trally.knowcatfud.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.FilePathInfo;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileService;
 import life.trally.knowcatfud.service.interfaces.UserFileDownloadService;
 import life.trally.knowcatfud.utils.FileUtil;
-import life.trally.knowcatfud.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -117,7 +111,7 @@ public class FileServiceImpl implements FileService {
     }
 
     @Override
-    public ResponseEntity<Resource> download(String token, String username, String path) {
+    public ResponseEntity<Resource> download(String token, String username, String path, String rangeHeader) {
         if (!checkAccess(token, username)) {
             return null;
         }
@@ -128,8 +122,13 @@ public class FileServiceImpl implements FileService {
         qw.eq("user_path", queryPath);
         FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
         try {
-            return userFileDownloadService.download(filePathInfo);
+            return userFileDownloadService.download(filePathInfo, rangeHeader);
         } catch (Exception e) {
+
+            // TODO:
+            // 更准确的错误处理方法
+
+
             return null;
         }
     }
@@ -154,7 +153,6 @@ public class FileServiceImpl implements FileService {
 
 
     }
-
 
 
 }

@@ -11,7 +11,6 @@ import java.util.List;
 public interface FileService {
 
 
-
     enum Result {
         FILE_SUCCESS,
         DIR_SUCCESS,
@@ -28,7 +27,7 @@ public interface FileService {
 
     ServiceResult<Result, List<FilePathInfo>> getList(String token, String username, String filePathInfo);
 
-    ResponseEntity<Resource> download(String token, String username, String path);
+    ResponseEntity<Resource> download(String token, String username, String path, String rangeHeader);
 
     Result delete(String token, String username, String path);
 

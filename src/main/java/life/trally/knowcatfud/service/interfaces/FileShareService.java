@@ -18,9 +18,9 @@ public interface FileShareService {
 
     ServiceResult<Result, String> share(String token, String username, String path, ShareInfo shareInfo);
 
-    ResponseEntity<Resource> download(String shareUUID, String password);
+    ResponseEntity<Resource> download(String shareUUID, String password, String rangeHeader);
 
     Result like(String shareUUID);
 
-    ServiceResult<Result,Object> getLikeRanking();
+    ServiceResult<Result, Object> getLikeRanking();
 }

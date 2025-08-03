@@ -7,6 +7,6 @@ import org.springframework.http.ResponseEntity;
 import java.net.MalformedURLException;
 
 public interface UserFileDownloadService {
-    ResponseEntity<Resource> download(FilePathInfo filePathInfo) throws MalformedURLException;
 
+    ResponseEntity<Resource> download(FilePathInfo filePathInfo, String rangeHeader) throws MalformedURLException;
 }
