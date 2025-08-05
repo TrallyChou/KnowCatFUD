@@ -31,10 +31,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public String login(User user) {  // 用户认证
-        UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword());
+        UsernamePasswordAuthenticationToken usernameAndPassword = new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword());
         Authentication authenticate;
         try {
-            authenticate = authenticationManager.authenticate(token);// 进行认证. spring security会自动调用UserDetailsService的实现类
+            authenticate = authenticationManager.authenticate(usernameAndPassword);// 进行认证. spring security会自动调用UserDetailsService的实现类
         } catch (Exception e) {
             return null; // 登陆失败
         }

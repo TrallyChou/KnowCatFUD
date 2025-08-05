@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,17 +22,13 @@ public class FilesController {
     private FileService fileService;
 
     @PostMapping("/files/{username}")
+    @PreAuthorize("hasAnyAuthority('files:upload_or_mkdir')")
     public R uploadOrMkdir(
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
             @RequestPart("file") @Nullable MultipartFile multipartFile,
             @RequestPart("info") @NonNull FilePathInfo filePathInfo   // 在客户端一定要指明Context-Type为application/json
     ) {
-        // TODO:
-        // 1. 检查用户和用户名是否一致
-
-        // 2. 检查URL和文件信息是否匹配
-
         return switch (fileService.uploadOrMkdir(token, username, multipartFile, filePathInfo)) {
             case FILE_SUCCESS -> R.ok().message("文件上传成功");
             case FILE_ALREADY_EXISTS -> R.error().message("文件已存在");
@@ -44,6 +41,7 @@ public class FilesController {
 
     // 文件列表获取
     @GetMapping(path = "/files/{username}/{*path}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasAnyAuthority('files:list')")
     public R list(
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
@@ -59,6 +57,7 @@ public class FilesController {
 
     // 文件下载
     @GetMapping(value = "/files/{username}/{*path}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @PreAuthorize("hasAnyAuthority('files:download')")
     public ResponseEntity<Resource> download(
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
@@ -69,6 +68,7 @@ public class FilesController {
 
     // 文件删除
     @DeleteMapping(value = "/files/{username}/{*path}")
+    @PreAuthorize("hasAnyAuthority('files:delete')")
     public R delete(
             @RequestHeader("Authorization") String token,
             @PathVariable String username,

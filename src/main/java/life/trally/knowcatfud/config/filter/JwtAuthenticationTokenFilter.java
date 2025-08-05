@@ -44,9 +44,8 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             String loginUserStr = claims.getSubject();
             LoginUser loginUser = JSON.parseObject(loginUserStr, LoginUser.class);
 //            System.out.println(loginUser);
-
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(loginUser, null, null);
+                    new UsernamePasswordAuthenticationToken(loginUser, null,loginUser.getAuthorities());
             // 两个参数表示未认证，三个参数表示已认证
 
             SecurityContextHolder.getContext().setAuthentication(authentication);

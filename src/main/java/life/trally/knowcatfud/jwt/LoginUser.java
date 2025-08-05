@@ -1,24 +1,37 @@
 package life.trally.knowcatfud.jwt;
 
+import com.alibaba.fastjson2.annotation.JSONField;
 import life.trally.knowcatfud.pojo.User;
 import lombok.Data;
+import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 @Data
 public class LoginUser implements UserDetails {
     private User user;
+    private List<String> list;   // 权限列表 坑：千万不要把这个List命名为authorities，否则会被lombok的@Data重写getAuthorities
 
-    public LoginUser(User user) {
+    @JSONField(serialize = false)
+    private List<SimpleGrantedAuthority> authorities;  //
+
+    public LoginUser(User user, List<String> list) {
         this.user = user;
+        this.list = list;
     }
 
-    @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of();
+        if(authorities != null){
+            return authorities;
+        }
+        authorities =new ArrayList<>();
+        list.forEach(perm -> this.authorities.add(new SimpleGrantedAuthority(perm)));
+        return authorities;
     }
 
     @Override

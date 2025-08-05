@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -19,6 +20,7 @@ public class FilesShareController {
 
     // 分享
     @PostMapping("/share/{username}/{*path}")
+    @PreAuthorize("hasAnyAuthority('files_share:share')")
     public R share(
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
@@ -37,6 +39,7 @@ public class FilesShareController {
 
     // 下载
     @GetMapping(value = "/share/{shareUUID}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @PreAuthorize("hasAnyAuthority('files_share:download')")
     public ResponseEntity<Resource> download(
             @PathVariable String shareUUID,
             @RequestParam @Nullable String password,
@@ -50,6 +53,7 @@ public class FilesShareController {
 
     // 点赞
     @PatchMapping("/share/{shareUUID}/like")
+    @PreAuthorize("hasAnyAuthority('files_share:like')")
     public R like(@PathVariable String shareUUID) {
         return switch (fileShareService.like(shareUUID)) {
             case SUCCESS -> R.ok().message("点赞成功");
@@ -60,6 +64,7 @@ public class FilesShareController {
 
     // 获取点赞排行榜
     @GetMapping("/share")
+    @PreAuthorize("hasAnyAuthority('files_share:get_like_ranking')")
     public R getLikeRanking() {
         ServiceResult<FileShareService.Result, Object> r = fileShareService.getLikeRanking();
         return switch (r.getResult()) {
