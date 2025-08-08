@@ -2,8 +2,6 @@ package life.trally.knowcatfud.service.interfaces;
 
 import life.trally.knowcatfud.pojo.ShareInfo;
 import life.trally.knowcatfud.service.ServiceResult;
-import org.springframework.core.io.Resource;
-import org.springframework.http.ResponseEntity;
 
 public interface FileShareService {
 
@@ -18,7 +16,7 @@ public interface FileShareService {
 
     ServiceResult<Result, String> share(String token, String username, String path, ShareInfo shareInfo);
 
-    ResponseEntity<Resource> download(String shareUUID, String password, String rangeHeader);
+    ServiceResult<Result, String> download(String shareUUID, String password);
 
     Result like(String shareUUID);
 

@@ -9,13 +9,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 20MB
-
-  #  security:
-#    user:
-#      name: default
-#      password: 123
+      max-file-size: 512MB
+      max-request-size: 512MB
 
   datasource:
     username: root

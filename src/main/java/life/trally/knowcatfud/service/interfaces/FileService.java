@@ -6,8 +6,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-
 public interface FileService {
 
 
@@ -25,9 +23,9 @@ public interface FileService {
 
     Result uploadOrMkdir(String token, String username, MultipartFile multipartFile, FilePathInfo filePathInfo);
 
-    ServiceResult<Result, List<FilePathInfo>> getList(String token, String username, String filePathInfo);
+    ServiceResult<Result, Object> filePathInfo(String token, String username, String path);
 
-    ResponseEntity<Resource> download(String token, String username, String path, String rangeHeader);
+    ResponseEntity<Resource> download(String token, String range);
 
     Result delete(String token, String username, String path);
 

@@ -14,27 +14,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Set;
 
 @Component
 public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 //    private final HttpServletResponse httpServletResponse;
-    private static final Set<String> ALLOWED_PATHS = Set.of("/login", "/reg");
 
 //    public JwtAuthenticationTokenFilter(HttpServletResponse httpServletResponse) {
 //        this.httpServletResponse = httpServletResponse;
 //    }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String requestURI = request.getRequestURI();
-
-        // 放行一些请求
-        if (ALLOWED_PATHS.contains(requestURI)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
 
         String authorization = request.getHeader("Authorization"); // token
 //        System.out.println(authorization);
@@ -44,14 +35,15 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             String loginUserStr = claims.getSubject();
             LoginUser loginUser = JSON.parseObject(loginUserStr, LoginUser.class);
 //            System.out.println(loginUser);
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(loginUser, null,loginUser.getAuthorities());
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities());
             // 两个参数表示未认证，三个参数表示已认证
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             filterChain.doFilter(request, response);
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            filterChain.doFilter(request, response);  // 因为jwt解析失败的访问并不会通过后面的过滤器，所以这里不考虑拦截
         }
+
+
     }
 }

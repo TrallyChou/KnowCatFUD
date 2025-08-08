@@ -1,19 +1,15 @@
 package life.trally.knowcatfud.controller;
 
 import life.trally.knowcatfud.pojo.FilePathInfo;
-import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RestController
 public class FilesController {
@@ -39,35 +35,26 @@ public class FilesController {
         };
     }
 
-    // 文件列表获取
-    @GetMapping(path = "/files/{username}/{*path}", produces = MediaType.APPLICATION_JSON_VALUE)
+    // 文件列表获取 或 文件下载
+    @GetMapping("/files/{username}/{*path}")
     @PreAuthorize("hasAnyAuthority('files:list')")
-    public R list(
+    public R listOrDownload(
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
             @PathVariable String path) {
-        ServiceResult<FileService.Result, List<FilePathInfo>> r = fileService.getList(token, username, path);
+        var r = fileService.filePathInfo(token, username, path);
+
         return switch (r.getResult()) {
-            case FILE_SUCCESS -> R.ok().data("files_list", r.getData());
-            case FILE_NOT_FOUND -> R.error().message("目录不存在");
+            case DIR_SUCCESS -> R.ok().data("files_list", r.getData());
+            case FILE_SUCCESS -> R.ok().data("file_token", r.getData());
+            case FILE_NOT_FOUND -> R.error().message("文件或目录不存在");
             case INVALID_ACCESS -> R.error().message("非法访问");
             default -> R.error().message("未知错误");
         };
     }
 
-    // 文件下载
-    @GetMapping(value = "/files/{username}/{*path}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @PreAuthorize("hasAnyAuthority('files:download')")
-    public ResponseEntity<Resource> download(
-            @RequestHeader("Authorization") String token,
-            @PathVariable String username,
-            @PathVariable String path,
-            @RequestHeader(value = "Range", required = false) String rangeHeader) {
-        return fileService.download(token, username, path, rangeHeader);
-    }
-
     // 文件删除
-    @DeleteMapping(value = "/files/{username}/{*path}")
+    @DeleteMapping("/files/{username}/{*path}")
     @PreAuthorize("hasAnyAuthority('files:delete')")
     public R delete(
             @RequestHeader("Authorization") String token,
@@ -85,11 +72,12 @@ public class FilesController {
         };
     }
 
-
-//    @GetMapping("/files/{filename}")
-//    public R download(@PathVariable String filename) {
-//        return R.ok();
-//    }
+    @GetMapping("/files/download/{token}")
+    public ResponseEntity<Resource> download(
+            @PathVariable String token,
+            @RequestHeader("Range") @Nullable String range) {
+        return fileService.download(token, range);
+    }
 
 
 }

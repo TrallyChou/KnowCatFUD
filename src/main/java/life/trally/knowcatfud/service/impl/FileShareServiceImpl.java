@@ -6,17 +6,17 @@ import life.trally.knowcatfud.dao.FilePathInfoMapper;
 import life.trally.knowcatfud.pojo.FilePathInfo;
 import life.trally.knowcatfud.pojo.ShareInfo;
 import life.trally.knowcatfud.service.ServiceResult;
+import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
-import life.trally.knowcatfud.service.interfaces.UserFileDownloadService;
 import life.trally.knowcatfud.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
 import org.springframework.data.redis.core.ZSetOperations;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
 
@@ -30,7 +30,7 @@ public class FileShareServiceImpl implements FileShareService {
     RedisUtil redisUtil;
 
     @Autowired
-    UserFileDownloadService userFileDownloadService;
+    FileDownloadService fileDownloadService;
 
 
     @Override
@@ -82,8 +82,9 @@ public class FileShareServiceImpl implements FileShareService {
 
     }
 
+
     @Override
-    public ResponseEntity<Resource> download(String shareUUID, String password, String rangeHeader) {
+    public ServiceResult<Result, String> download(String shareUUID, String password) {
         String passwd = redisUtil.hGet("share:uuid_info:" + shareUUID, "password");
         String fileUserPath = null;
 
@@ -99,7 +100,14 @@ public class FileShareServiceImpl implements FileShareService {
             QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
             qw.eq("user_path", fileUserPath);
             FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
-            return userFileDownloadService.download(filePathInfo, rangeHeader);
+
+            String fileToken = UUID.randomUUID().toString();
+            redisUtil.hSet("download:" + fileToken, "hash", filePathInfo.getHash());
+            redisUtil.hSet("download:" + fileToken, "size", String.valueOf(filePathInfo.getSize()));
+            redisUtil.hSet("download:" + fileToken, "filename", StringUtils.getFilename(filePathInfo.getUserPath()));
+            redisUtil.expire("download:" + fileToken, 3, TimeUnit.MINUTES);
+
+            return new ServiceResult<>(Result.SUCCESS, fileToken);
         } catch (Exception e) {
             return null;
         }

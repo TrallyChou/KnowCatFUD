@@ -1,7 +1,7 @@
 package life.trally.knowcatfud.service.impl;
 
 import life.trally.knowcatfud.pojo.FilePathInfo;
-import life.trally.knowcatfud.service.interfaces.UserFileDownloadService;
+import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import org.springframework.core.io.AbstractResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.net.MalformedURLException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -26,7 +27,7 @@ import java.nio.file.Paths;
  */
 
 @Service
-public class UserFileDownloadServiceImpl implements UserFileDownloadService {
+public class FileDownloadServiceImpl implements FileDownloadService {
 
     @Override
     public ResponseEntity<Resource> download(FilePathInfo filePathInfo, String rangeHeader) throws MalformedURLException {
@@ -36,6 +37,7 @@ public class UserFileDownloadServiceImpl implements UserFileDownloadService {
         Resource resource = new UrlResource(filePath.toUri());
         long fileLength = filePathInfo.getSize();
 
+        // 这种情况暂时认为是head请求
         if (!StringUtils.hasText(rangeHeader)) {
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -44,6 +46,10 @@ public class UserFileDownloadServiceImpl implements UserFileDownloadService {
                     .contentLength(filePathInfo.getSize())
                     .header(HttpHeaders.ACCEPT_RANGES, "bytes")
                     .body(resource);
+//            return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+//                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+//                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+//                    .body(null);
         }
 
         String[] ranges = rangeHeader.substring("bytes=".length()).split("-");
@@ -66,6 +72,50 @@ public class UserFileDownloadServiceImpl implements UserFileDownloadService {
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
                 .body(rangeResource);
     }
+
+    @Override
+    public ResponseEntity<Resource> download(String fileHash, long fileSize, String fileName, String rangeHeader) throws MalformedURLException {
+        Path filePath = Paths.get("files/", fileHash + fileSize);
+        Resource resource = new UrlResource(filePath.toUri());
+        long fileLength = 0;
+        try {
+            fileLength = Files.size(filePath);
+        } catch (IOException e) {
+            return null;
+        }
+
+        if (!StringUtils.hasText(rangeHeader)) {
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + fileName + "\"")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentLength(fileSize)
+                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                    .body(resource);
+        }
+
+
+        String[] ranges = rangeHeader.substring("bytes=".length()).split("-");
+        long start = Long.parseLong(ranges[0]);
+        long end = ranges.length > 1 ? Long.parseLong(ranges[1]) : fileLength - 1;
+        long contentLength = end - start + 1;
+
+        if (start < 0 || end >= fileLength || start > end) {
+            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    .header(HttpHeaders.CONTENT_RANGE, "bytes */" + fileLength)
+                    .build();
+        }
+
+        RangeResource rangeResource = new RangeResource(resource, start, contentLength);
+
+        return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+                .header(HttpHeaders.CONTENT_RANGE, "bytes " + start + "-" + end + "/" + fileLength)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(contentLength)
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .body(rangeResource);
+    }
+
 
     static class RangeResource extends AbstractResource {
         private final Resource delegate;

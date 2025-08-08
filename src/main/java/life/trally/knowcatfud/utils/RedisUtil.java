@@ -66,7 +66,7 @@ public class RedisUtil {
         return redisTemplate.hasKey(key);
     }
 
-    public Set<ZSetOperations.TypedTuple<String>> zRevRangeWithScore(String key, long start, long end){
+    public Set<ZSetOperations.TypedTuple<String>> zRevRangeWithScore(String key, long start, long end) {
         return redisTemplate.opsForZSet().reverseRangeWithScores(key, start, end);
     }
 

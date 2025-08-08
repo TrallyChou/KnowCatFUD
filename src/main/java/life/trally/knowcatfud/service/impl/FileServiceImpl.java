@@ -4,9 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import life.trally.knowcatfud.dao.FilePathInfoMapper;
 import life.trally.knowcatfud.pojo.FilePathInfo;
 import life.trally.knowcatfud.service.ServiceResult;
+import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileService;
-import life.trally.knowcatfud.service.interfaces.UserFileDownloadService;
 import life.trally.knowcatfud.utils.FileUtil;
+import life.trally.knowcatfud.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -14,11 +15,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
 
@@ -29,21 +33,24 @@ public class FileServiceImpl implements FileService {
     FilePathInfoMapper filePathInfoMapper;
 
     @Autowired
-    UserFileDownloadService userFileDownloadService;
+    FileDownloadService fileDownloadService;
+    @Autowired
+    private RedisUtil redisUtil;
 
 
     @Override
     public Result uploadOrMkdir(String token, String username, MultipartFile multipartFile, FilePathInfo filePathInfo) {
 
+        String userPath = filePathInfo.getUserPath();
         if (!checkAccess(token, username)  // 非法访问
-                || !filePathInfo.getUserPath().startsWith(username + "/")
+                || !userPath.startsWith(username + "/")
         ) {
             return Result.INVALID_ACCESS;
         }
 
         // 查询文件是否重名
         QueryWrapper<FilePathInfo> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_path", filePathInfo.getUserPath());
+        queryWrapper.eq("user_path", userPath);
         FilePathInfo oldFilePathInfo = filePathInfoMapper.selectOne(queryWrapper);
         if (oldFilePathInfo != null) {  // 文件已存在
             return Result.FILE_ALREADY_EXISTS;
@@ -51,6 +58,11 @@ public class FileServiceImpl implements FileService {
 
         // 如果是目录，则只需简单添加
         if (filePathInfo.getType() == FilePathInfo.TYPE_DIR) {
+
+            if (userPath.endsWith("/")) {
+                filePathInfo.setUserPath(userPath.replaceAll("/+$", ""));
+            }
+
             if (StringUtils.hasText(filePathInfo.getHash()) || filePathInfo.getSize() != 0) {
                 return Result.FILE_TYPE_NOT_SUPPORT;
             }
@@ -80,12 +92,16 @@ public class FileServiceImpl implements FileService {
             // 服务器获取文件，存入缓存目录
             Files.copy(multipartFile.getInputStream(), cachePath, StandardCopyOption.REPLACE_EXISTING);
 
-            // 检查文件哈希
-            if (!FileUtil.nioSHA256(cachePath).equals(filePathInfo.getHash())) {
+            String fileRealHash = FileUtil.nioSHA256(cachePath);
+
+            // 检查文件哈希和大小 存在大小写问题，后面存储时统一转换为由nioSHA256得到的HASH
+            if (!fileRealHash.equalsIgnoreCase(filePathInfo.getHash())
+                    || Files.size(cachePath) != filePathInfo.getSize()) {
                 Files.delete(cachePath);
                 return Result.FILE_UPLOAD_FAILED;
             }
 
+            filePathInfo.setHash(fileRealHash);
             filePathInfoMapper.insert(filePathInfo);
             Files.move(cachePath, storagePath);
             return Result.FILE_SUCCESS;
@@ -95,43 +111,85 @@ public class FileServiceImpl implements FileService {
         }
     }
 
+
+    /**
+     * 文件列表获取、文件token获取
+     *
+     * @param token
+     * @param username
+     * @param path
+     * @return
+     */
     @Override
-    public ServiceResult<Result, List<FilePathInfo>> getList(String token, String username, String path) {
+    public ServiceResult<Result, Object> filePathInfo(String token, String username, String path) {
 
         if (!checkAccess(token, username)) {
             return new ServiceResult<>(Result.INVALID_ACCESS, null);
         }
 
         String queryPath = username + path;
-        if (!queryPath.endsWith("/")) queryPath += "/";
-        QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
-        qw.likeRight("user_path", queryPath).notLike("user_path", queryPath + "%/%");
-        List<FilePathInfo> filePathInfos = filePathInfoMapper.selectList(qw);
-        return new ServiceResult<>(Result.FILE_SUCCESS, filePathInfos);
+
+        if (queryPath.endsWith("/")) {
+            queryPath = queryPath.substring(0, queryPath.length() - 1);
+        }
+
+        QueryWrapper<FilePathInfo> qw1 = new QueryWrapper<>();
+        qw1.eq("user_path", queryPath);
+        FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw1);
+        if (filePathInfo == null) {
+            return new ServiceResult<>(Result.FILE_NOT_FOUND, null);
+        }
+
+        switch (filePathInfo.getType()) {
+            case FilePathInfo.TYPE_DIR:
+                queryPath += "/";
+                QueryWrapper<FilePathInfo> qw2 = new QueryWrapper<>();
+                qw2.likeRight("user_path", queryPath).notLike("user_path", queryPath + "%/%");
+                List<FilePathInfo> filePathInfos = filePathInfoMapper.selectList(qw2);
+                return new ServiceResult<>(Result.DIR_SUCCESS, filePathInfos);
+            case FilePathInfo.TYPE_FILE:
+
+                String fileToken = UUID.randomUUID().toString();
+                redisUtil.hSet("download:" + fileToken, "hash", filePathInfo.getHash());
+                redisUtil.hSet("download:" + fileToken, "size", String.valueOf(filePathInfo.getSize()));
+                redisUtil.hSet("download:" + fileToken, "filename", StringUtils.getFilename(filePathInfo.getUserPath()));
+                redisUtil.expire("download:" + fileToken, 3, TimeUnit.MINUTES);
+
+                return new ServiceResult<>(Result.FILE_SUCCESS, fileToken);
+            default:
+                return new ServiceResult<>(Result.INVALID_ACCESS, null);
+        }
+
+
     }
 
+    /**
+     * 通过文件token和range头来分段下载文件
+     *
+     * @param token 文件token
+     * @param range 请求range头
+     * @return 文件资源或null
+     */
     @Override
-    public ResponseEntity<Resource> download(String token, String username, String path, String rangeHeader) {
-        if (!checkAccess(token, username)) {
+    public ResponseEntity<Resource> download(String token, String range) {
+        String key = "download:" + token;
+        if (!redisUtil.exists(key)) {
             return null;
         }
+        String fileName = redisUtil.hGet(key, "filename");
+        String hash = redisUtil.hGet(key, "hash");
+        long size = Long.parseLong(redisUtil.hGet(key, "size"));
 
-        String queryPath = username + path;  // 这一步确保了只会下载到用户自己的文件
-
-        QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
-        qw.eq("user_path", queryPath);
-        FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
         try {
-            return userFileDownloadService.download(filePathInfo, rangeHeader);
-        } catch (Exception e) {
-
-            // TODO:
-            // 更准确的错误处理方法
-
-
+            var r = fileDownloadService.download(hash, size, fileName, range);
+            redisUtil.expire("download:" + key, 3, TimeUnit.MINUTES);  //给文件续期三分钟
+            return r;
+        } catch (MalformedURLException e) {
             return null;
         }
+
     }
+
 
     @Override
     public Result delete(String token, String username, String path) {

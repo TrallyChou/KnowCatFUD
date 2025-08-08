@@ -4,9 +4,6 @@ import life.trally.knowcatfud.pojo.ShareInfo;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -38,17 +35,18 @@ public class FilesShareController {
     }
 
     // 下载
-    @GetMapping(value = "/share/{shareUUID}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @PreAuthorize("hasAnyAuthority('files_share:download')")
-    public ResponseEntity<Resource> download(
+    @GetMapping(value = "/share/{shareUUID}")
+    //@PreAuthorize("hasAnyAuthority('files_share:download')")
+    public R download(
             @PathVariable String shareUUID,
-            @RequestParam @Nullable String password,
-            @RequestHeader(value = "Range", required = false) String rangeHeader) {
+            @RequestParam @Nullable String password) {
 
-        // TODO:
-        // 1. 放行未登录用户，允许其下载
+        var r = fileShareService.download(shareUUID, password);
+        return switch (r.getResult()) {
+            case SUCCESS -> R.ok().data("file_token", r.getData());
+            default -> R.error().message("未知错误");
+        };
 
-        return fileShareService.download(shareUUID, password, rangeHeader);
     }
 
     // 点赞
