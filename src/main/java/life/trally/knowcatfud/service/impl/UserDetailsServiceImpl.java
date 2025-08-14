@@ -35,9 +35,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             throw new UsernameNotFoundException("用户不存在");
         }
 
-
-        //TODO: 查询用户对应的权限信息
-
         List<String> authorities = menuMapper.getPermsByUserId(user.getId());
 
 

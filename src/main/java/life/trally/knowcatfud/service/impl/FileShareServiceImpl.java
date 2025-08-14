@@ -48,7 +48,7 @@ public class FileShareServiceImpl implements FileShareService {
         FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
 
         if (filePathInfo == null || filePathInfo.getType() == FilePathInfo.TYPE_DIR) {
-            return new ServiceResult<>(Result.FILED, null);
+            return new ServiceResult<>(Result.FAILED, null);
         }
 
 
@@ -66,13 +66,13 @@ public class FileShareServiceImpl implements FileShareService {
             String key = "share:uuid_info:" + fileUUID;
             redisUtil.hSet(key, "file", queryPath);
             redisUtil.expire(key, 7 * 24);
-            if (shareInfo.isSharePublic() && shareInfo.getPassword() == null) {
-                redisUtil.hSet(key, "public", "true");
-                redisUtil.zAdd("share:uuid_ranking", fileUUID, 0);
-            } else {
-                redisUtil.hSet(key, "public", "false");
-                redisUtil.hSet(key, "password", shareInfo.getPassword());
-            }
+//            if (shareInfo.isSharePublic() && shareInfo.getPassword() == null) {
+//                redisUtil.hSet(key, "public", "true");
+//                redisUtil.zAdd("share:uuid_ranking", fileUUID, 0);
+//            } else {
+//                redisUtil.hSet(key, "public", "false");
+//                redisUtil.hSet(key, "password", shareInfo.getPassword());
+//            }
 
             return new ServiceResult<>(Result.SUCCESS, fileUUID);
 
@@ -94,7 +94,7 @@ public class FileShareServiceImpl implements FileShareService {
         }
 
         if (fileUserPath == null) {
-            return null;
+            return new ServiceResult<>(Result.FAILED, null);
         }
         try {
             QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
@@ -109,7 +109,7 @@ public class FileShareServiceImpl implements FileShareService {
 
             return new ServiceResult<>(Result.SUCCESS, fileToken);
         } catch (Exception e) {
-            return null;
+            return new ServiceResult<>(Result.FAILED, null);
         }
 
     }
@@ -126,7 +126,7 @@ public class FileShareServiceImpl implements FileShareService {
             return Result.SHARE_NOT_FOUND;
         }
         if (!"true".equals(redisUtil.hGet(key, "public"))) {
-            return Result.FILED;
+            return Result.FAILED;
         }
         redisUtil.zIncrby("share:uuid_ranking", shareUUID, 1);
         return Result.SUCCESS;
@@ -139,7 +139,7 @@ public class FileShareServiceImpl implements FileShareService {
 
         Set<ZSetOperations.TypedTuple<String>> ranking = redisUtil.zRevRangeWithScore("share:uuid_ranking", 0, 20);
         if (ranking == null) {
-            return new ServiceResult<>(Result.FILED, null);
+            return new ServiceResult<>(Result.FAILED, null);
         }
         return new ServiceResult<>(Result.SUCCESS, ranking);
     }

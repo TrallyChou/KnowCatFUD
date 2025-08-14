@@ -44,6 +44,7 @@ public class FilesShareController {
         var r = fileShareService.download(shareUUID, password);
         return switch (r.getResult()) {
             case SUCCESS -> R.ok().data("file_token", r.getData());
+            case FAILED -> R.error().message("获取文件token失败");
             default -> R.error().message("未知错误");
         };
 

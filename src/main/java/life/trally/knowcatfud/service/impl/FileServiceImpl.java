@@ -1,8 +1,11 @@
 package life.trally.knowcatfud.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import life.trally.knowcatfud.dao.FilePathInfoMapper;
+import life.trally.knowcatfud.dao.UserFileMapper;
 import life.trally.knowcatfud.pojo.FilePathInfo;
+import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileService;
@@ -29,8 +32,12 @@ import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
 @Service
 public class FileServiceImpl implements FileService {
 
+    @Deprecated
     @Autowired
     FilePathInfoMapper filePathInfoMapper;
+
+    @Autowired
+    UserFileMapper userFileMapper;
 
     @Autowired
     FileDownloadService fileDownloadService;
@@ -39,50 +46,82 @@ public class FileServiceImpl implements FileService {
 
 
     @Override
-    public Result uploadOrMkdir(String token, String username, MultipartFile multipartFile, FilePathInfo filePathInfo) {
+    public Result uploadOrMkdir(String token, String username, String path, MultipartFile multipartFile, UserFile userFile) {
 
-        String userPath = filePathInfo.getUserPath();
-        if (!checkAccess(token, username)  // 非法访问
-                || !userPath.startsWith(username + "/")
-        ) {
+        if (!checkAccess(token, username)) {   // 非法访问
             return Result.INVALID_ACCESS;
         }
 
-        // 查询文件是否重名
-        QueryWrapper<FilePathInfo> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_path", userPath);
-        FilePathInfo oldFilePathInfo = filePathInfoMapper.selectOne(queryWrapper);
-        if (oldFilePathInfo != null) {  // 文件已存在
+        userFile.setUsername(username);
+        userFile.setPath(path);
+        userFile.setId(null);
+        userFile.setCreatedAt(null);
+        if (userFile.getType() == null) {
+            return Result.INVALID_ACCESS;
+        }
+
+        // 查询是否重名
+        LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserFile::getUsername, username).eq(UserFile::getPath, userFile.getPath());
+        UserFile oldUserFile = userFileMapper.selectOne(qw);
+
+        if (oldUserFile != null) {
             return Result.FILE_ALREADY_EXISTS;
         }
 
+        // 要求父目录存在
+        String parent = Paths.get(userFile.getPath()).getParent()
+                .toString().replace("\\", "/");    // 统一win和linux下的路径样式
+
+        if (!parent.equals("/")) {
+
+            // 如果父目录不存在，则返回
+            LambdaQueryWrapper<UserFile> qw1 = new LambdaQueryWrapper<>();
+            qw1.eq(UserFile::getUsername, username).eq(UserFile::getPath, parent + "/");
+            // + "/" 是因为沟槽的getParent()得到的结果
+            UserFile parentPath = userFileMapper.selectOne(qw1);
+            if (parentPath == null) {
+                return Result.FILE_UPLOAD_FAILED;
+            }
+        }
+
         // 如果是目录，则只需简单添加
-        if (filePathInfo.getType() == FilePathInfo.TYPE_DIR) {
+        if (userFile.getType() == UserFile.TYPE_DIR) {
 
-            if (userPath.endsWith("/")) {
-                filePathInfo.setUserPath(userPath.replaceAll("/+$", ""));
+            // 要求目录以/结尾
+
+            if (!userFile.getPath().endsWith("/")) {
+                return Result.FILE_UPLOAD_FAILED;
             }
 
-            if (StringUtils.hasText(filePathInfo.getHash()) || filePathInfo.getSize() != 0) {
-                return Result.FILE_TYPE_NOT_SUPPORT;
-            }
+            userFile.setHash(null);
+            userFile.setSize(null);
 
-            filePathInfoMapper.insert(filePathInfo);
+            userFileMapper.insert(userFile);
+
             return Result.DIR_SUCCESS;
         }
 
-        if (multipartFile == null || filePathInfo.getSize() != multipartFile.getSize()) {
+
+        // 如果是文件，要求文件名不以/结尾：
+        if (userFile.getPath().endsWith("/")) {
+            return Result.FILE_UPLOAD_FAILED;
+        }
+
+        // 要求目录存在
+
+
+        if (multipartFile == null || userFile.getSize() != multipartFile.getSize()) {
             return Result.FILE_UPLOAD_FAILED;
         }
 
         // 保存时文件名为 哈希+文件大小
-        Path cachePath = Paths.get("files/cache", filePathInfo.getHash() + filePathInfo.getSize());
-        Path storagePath = Paths.get("files/", filePathInfo.getHash() + filePathInfo.getSize());
+        Path cachePath = Paths.get("files/cache", userFile.getHash() + userFile.getSize());
+        Path storagePath = Paths.get("files/", userFile.getHash() + userFile.getSize());
         if (Files.exists(storagePath)) {
-
             // TODO:
             // 抽检文件，防止已存储文件泄露
-            filePathInfoMapper.insert(filePathInfo);  // 已经存在则只需要记录
+            userFileMapper.insert(userFile);  // 已经存在则只需要记录
             return Result.FILE_SUCCESS;
         }
 
@@ -95,18 +134,18 @@ public class FileServiceImpl implements FileService {
             String fileRealHash = FileUtil.nioSHA256(cachePath);
 
             // 检查文件哈希和大小 存在大小写问题，后面存储时统一转换为由nioSHA256得到的HASH
-            if (!fileRealHash.equalsIgnoreCase(filePathInfo.getHash())
-                    || Files.size(cachePath) != filePathInfo.getSize()) {
+            if (!fileRealHash.equalsIgnoreCase(userFile.getHash())
+                    || Files.size(cachePath) != userFile.getSize()) {
                 Files.delete(cachePath);
                 return Result.FILE_UPLOAD_FAILED;
             }
 
-            filePathInfo.setHash(fileRealHash);
-            filePathInfoMapper.insert(filePathInfo);
+            userFile.setHash(fileRealHash);
+            userFileMapper.insert(userFile);
             Files.move(cachePath, storagePath);
             return Result.FILE_SUCCESS;
         } catch (Exception e) {
-            filePathInfoMapper.deleteById(filePathInfo);  // 若未上传成功，则从表中删去
+            userFileMapper.deleteById(userFile);  // 若未上传成功，则从表中删去
             return Result.FILE_UPLOAD_FAILED;
         }
     }

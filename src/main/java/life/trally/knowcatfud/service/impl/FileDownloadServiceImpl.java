@@ -30,6 +30,7 @@ import java.nio.file.Paths;
 public class FileDownloadServiceImpl implements FileDownloadService {
 
     @Override
+    @Deprecated   // 不用了
     public ResponseEntity<Resource> download(FilePathInfo filePathInfo, String rangeHeader) throws MalformedURLException {
 
         String fileName = filePathInfo.getHash() + filePathInfo.getSize();

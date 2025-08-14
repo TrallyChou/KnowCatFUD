@@ -1,6 +1,6 @@
 package life.trally.knowcatfud.controller;
 
-import life.trally.knowcatfud.pojo.FilePathInfo;
+import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.interfaces.FileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -17,15 +17,16 @@ public class FilesController {
     @Autowired
     private FileService fileService;
 
-    @PostMapping("/files/{username}")
+    @PostMapping("/files/{username}/{*path}")
     @PreAuthorize("hasAnyAuthority('files:upload_or_mkdir')")
     public R uploadOrMkdir(
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
+            @PathVariable String path,
             @RequestPart("file") @Nullable MultipartFile multipartFile,
-            @RequestPart("info") @NonNull FilePathInfo filePathInfo   // 在客户端一定要指明Context-Type为application/json
+            @RequestPart("info") @NonNull UserFile userFile   // 在客户端一定要指明Context-Type为application/json
     ) {
-        return switch (fileService.uploadOrMkdir(token, username, multipartFile, filePathInfo)) {
+        return switch (fileService.uploadOrMkdir(token, username, path, multipartFile, userFile)) {
             case FILE_SUCCESS -> R.ok().message("文件上传成功");
             case FILE_ALREADY_EXISTS -> R.error().message("文件已存在");
             case FILE_UPLOAD_FAILED -> R.error().message("文件上传失败");

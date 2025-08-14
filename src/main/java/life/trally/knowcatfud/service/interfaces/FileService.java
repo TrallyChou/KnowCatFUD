@@ -1,6 +1,6 @@
 package life.trally.knowcatfud.service.interfaces;
 
-import life.trally.knowcatfud.pojo.FilePathInfo;
+import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +21,7 @@ public interface FileService {
         INVALID_ACCESS
     }
 
-    Result uploadOrMkdir(String token, String username, MultipartFile multipartFile, FilePathInfo filePathInfo);
+    Result uploadOrMkdir(String token, String username, String path, MultipartFile multipartFile, UserFile userFile);
 
     ServiceResult<Result, Object> filePathInfo(String token, String username, String path);
 

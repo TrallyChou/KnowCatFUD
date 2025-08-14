@@ -7,7 +7,7 @@ public interface FileShareService {
 
     enum Result {
         SUCCESS,
-        FILED,
+        FAILED,
         SHARE_NOT_FOUND,
         ALREADY_SHARED,
         INVALID_ACCESS,
