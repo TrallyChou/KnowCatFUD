@@ -8,7 +8,6 @@ import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileService;
 import life.trally.knowcatfud.utils.FileUtil;
 import life.trally.knowcatfud.utils.RedisUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -29,13 +28,16 @@ import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
 @Service
 public class FileServiceImpl implements FileService {
 
-    @Autowired
-    private UserFileMapper userFileMapper;
+    private final UserFileMapper userFileMapper;
 
-    @Autowired
-    private FileDownloadService fileDownloadService;
-    @Autowired
-    private RedisUtil redisUtil;
+    private final FileDownloadService fileDownloadService;
+    private final RedisUtil redisUtil;
+
+    public FileServiceImpl(UserFileMapper userFileMapper, FileDownloadService fileDownloadService, RedisUtil redisUtil) {
+        this.userFileMapper = userFileMapper;
+        this.fileDownloadService = fileDownloadService;
+        this.redisUtil = redisUtil;
+    }
 
     /**
      * 文件上传和创建目录

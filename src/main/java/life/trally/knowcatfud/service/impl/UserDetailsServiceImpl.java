@@ -5,7 +5,6 @@ import life.trally.knowcatfud.dao.MenuMapper;
 import life.trally.knowcatfud.dao.UserMapper;
 import life.trally.knowcatfud.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.User;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -18,11 +17,14 @@ import java.util.List;
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
 
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
 
-    @Autowired
-    private MenuMapper menuMapper;
+    private final MenuMapper menuMapper;
+
+    public UserDetailsServiceImpl(UserMapper userMapper, MenuMapper menuMapper) {
+        this.userMapper = userMapper;
+        this.menuMapper = menuMapper;
+    }
 
     @Override
     public UserDetails loadUserByUsername(String username) {

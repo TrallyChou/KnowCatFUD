@@ -7,14 +7,14 @@ import life.trally.knowcatfud.dao.UserFileMapper;
 import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
-import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
 import life.trally.knowcatfud.utils.RedisUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -25,17 +25,17 @@ import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
 @Service
 public class FileShareServiceImpl implements FileShareService {
 
-    @Autowired
-    private FileShareMapper fileShareMapper;
+    private final FileShareMapper fileShareMapper;
 
-    @Autowired
-    private RedisUtil redisUtil;
+    private final RedisUtil redisUtil;
 
-    @Autowired
-    private FileDownloadService fileDownloadService;
+    private final UserFileMapper userFileMapper;
 
-    @Autowired
-    private UserFileMapper userFileMapper;
+    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtil redisUtil, UserFileMapper userFileMapper) {
+        this.fileShareMapper = fileShareMapper;
+        this.redisUtil = redisUtil;
+        this.userFileMapper = userFileMapper;
+    }
 
 
     @Override
@@ -60,10 +60,30 @@ public class FileShareServiceImpl implements FileShareService {
         qw1.eq(FileShare::getFileId, userFile.getId());
         FileShare oldFileShare = fileShareMapper.selectOne(qw1);
         if (oldFileShare != null) {
-            return new ServiceResult<>(Result.ALREADY_SHARED, oldFileShare.getUuid());
+
+            // 检查旧分享是否过期
+            Integer expire = oldFileShare.getExpire();
+
+            if (expire == null) {
+                return new ServiceResult<>(Result.ALREADY_SHARED, oldFileShare.getUuid());
+            }
+
+            Instant deadtime = oldFileShare.getCreatedAt().toInstant()  // 分享创建时间
+                    .plus(expire, ChronoUnit.HOURS);   // 加 过期时间 小时
+
+            if (!Instant.now().isAfter(deadtime)) {
+                // 没过期 返回原来的uuid
+                return new ServiceResult<>(Result.ALREADY_SHARED, oldFileShare.getUuid());
+            }
+
+            // 过期了，重新分享（使用新uuid）
+            fileShareMapper.deleteById(oldFileShare);
         }
 
         // 未分享过
+        if (fileShare.getExpire() <= 0) {
+            return new ServiceResult<>(Result.FAILED, null);
+        }
         String shareUUID = UUID.randomUUID().toString();
         fileShare.setFileId(userFile.getId());
         fileShare.setUuid(shareUUID);
@@ -114,6 +134,19 @@ public class FileShareServiceImpl implements FileShareService {
         FileShare fileShare = fileShareMapper.selectOne(qw);
         if (fileShare == null) {
             return new ServiceResult<>(Result.FAILED, null);
+        }
+
+        // 检查分享是否过期
+        Integer expire = fileShare.getExpire();
+        if (expire != null) {
+            Instant deadtime = fileShare.getCreatedAt().toInstant()  // 分享创建时间
+                    .plus(fileShare.getExpire(), ChronoUnit.HOURS);   // 加 过期时间 小时
+
+            if (Instant.now().isAfter(deadtime)) {
+                // 过期了，禁止下载并删除分享
+                fileShareMapper.deleteById(fileShare);
+                return new ServiceResult<>(Result.FAILED, fileShare.getUuid());
+            }
         }
 
         // 检查是否私密分享

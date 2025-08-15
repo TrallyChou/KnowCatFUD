@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.sql.Timestamp;
+
 
 @Data
 @AllArgsConstructor
@@ -24,5 +26,7 @@ public class FileShare {
     private Integer type = PUBLIC_RANKING;  // 分享类型
     private String password;
     private String introduction;
+    private Timestamp createdAt;
+    private Integer expire;
     private Integer likes = 0;   // 缓存点赞数
 }

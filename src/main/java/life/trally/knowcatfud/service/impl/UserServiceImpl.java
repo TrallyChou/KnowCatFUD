@@ -10,7 +10,6 @@ import life.trally.knowcatfud.pojo.User;
 import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.interfaces.UserService;
 import life.trally.knowcatfud.utils.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -22,17 +21,20 @@ import java.util.Map;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
 
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private UserFileMapper userFileMapper;
+    private final UserFileMapper userFileMapper;
+
+    public UserServiceImpl(AuthenticationManager authenticationManager, UserMapper userMapper, PasswordEncoder passwordEncoder, UserFileMapper userFileMapper) {
+        this.authenticationManager = authenticationManager;
+        this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.userFileMapper = userFileMapper;
+    }
 
 
     @Override
@@ -55,8 +57,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
          */
 
         String jwt = JwtUtil.generateToken(claims, JSON.toJSONString(principle));
-
-//        System.out.println(jwt);
 
         return jwt;
     }
