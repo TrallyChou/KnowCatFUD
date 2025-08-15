@@ -43,7 +43,7 @@ public class FilesController {
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
             @PathVariable String path) {
-        var r = fileService.filePathInfo(token, username, path);
+        var r = fileService.listOrDownload(token, username, path);
 
         return switch (r.getResult()) {
             case DIR_SUCCESS -> R.ok().data("files_list", r.getData());

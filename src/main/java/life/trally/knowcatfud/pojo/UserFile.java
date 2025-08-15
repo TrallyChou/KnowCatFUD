@@ -19,14 +19,20 @@ public class UserFile {
     public final static int TYPE_FILE = 1;
 
     @TableId(type = IdType.AUTO)
-    Long id;
+    private Long id;
 
-    String username;
-    String path;
-    Timestamp createdAt;
-    Integer type;
-    String hash;
-    Integer size;
+    private String username;
+    private String filename;
+    private String parent;
+    private String path;
+    private Timestamp createdAt;
+    private Integer type;
+    private String hash;
+    private Integer size;
+
+    public static UserFile rootDir(String username) {
+        return new UserFile(null, username, null, null, "/", null, TYPE_DIR, null, null);
+    }
 
 
 }

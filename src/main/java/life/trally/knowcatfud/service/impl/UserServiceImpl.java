@@ -3,9 +3,11 @@ package life.trally.knowcatfud.service.impl;
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import life.trally.knowcatfud.dao.UserFileMapper;
 import life.trally.knowcatfud.dao.UserMapper;
 import life.trally.knowcatfud.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.User;
+import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.interfaces.UserService;
 import life.trally.knowcatfud.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private UserFileMapper userFileMapper;
+
 
     @Override
     public String login(User user) {  // 用户认证
@@ -63,6 +69,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (userMapper.selectOne(queryWrapper) == null) {  // 用户不存在
             User userInsert = new User(null, user.getUsername(), passwordEncoder.encode(user.getPassword()));
             userMapper.insert(userInsert);
+            userFileMapper.insert(UserFile.rootDir(user.getUsername()));
             return Result.SUCCESS;
         } else {
             return Result.USER_ALREADY_EXIST;
@@ -70,7 +77,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         // return RegResult.FAIL;
     }
-
 
 
 }

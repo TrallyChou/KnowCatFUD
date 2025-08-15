@@ -23,7 +23,7 @@ public interface FileService {
 
     Result uploadOrMkdir(String token, String username, String path, MultipartFile multipartFile, UserFile userFile);
 
-    ServiceResult<Result, Object> filePathInfo(String token, String username, String path);
+    ServiceResult<Result, Object> listOrDownload(String token, String username, String path);
 
     ResponseEntity<Resource> download(String token, String range);
 
