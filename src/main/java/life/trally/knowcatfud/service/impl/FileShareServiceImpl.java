@@ -1,10 +1,11 @@
 package life.trally.knowcatfud.service.impl;
 
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import life.trally.knowcatfud.dao.FilePathInfoMapper;
-import life.trally.knowcatfud.pojo.FilePathInfo;
-import life.trally.knowcatfud.pojo.ShareInfo;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import life.trally.knowcatfud.dao.FileShareMapper;
+import life.trally.knowcatfud.dao.UserFileMapper;
+import life.trally.knowcatfud.pojo.FileShare;
+import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
@@ -14,6 +15,7 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -24,94 +26,146 @@ import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
 public class FileShareServiceImpl implements FileShareService {
 
     @Autowired
-    FilePathInfoMapper filePathInfoMapper;
+    private FileShareMapper fileShareMapper;
 
     @Autowired
-    RedisUtil redisUtil;
+    private RedisUtil redisUtil;
 
     @Autowired
-    FileDownloadService fileDownloadService;
+    private FileDownloadService fileDownloadService;
+
+    @Autowired
+    private UserFileMapper userFileMapper;
 
 
     @Override
-    public ServiceResult<Result, String> share(String token, String username, String path, ShareInfo shareInfo) {
+    public ServiceResult<Result, String> share(String token, String username, String path, FileShare fileShare) {
 
         if (!checkAccess(token, username)) {
             return new ServiceResult<>(Result.INVALID_ACCESS, null);
         }
 
         // 然后检查文件是否存在
+        LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
+        qw.eq(UserFile::getUsername, username).eq(UserFile::getPath, path);
+        UserFile userFile = userFileMapper.selectOne(qw);
 
-        String queryPath = username + path;
-        QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
-        qw.eq("user_path", queryPath);
-        FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
 
-        if (filePathInfo == null || filePathInfo.getType() == FilePathInfo.TYPE_DIR) {
+        if (userFile == null || userFile.getType() == UserFile.TYPE_DIR) {
             return new ServiceResult<>(Result.FAILED, null);
         }
 
-
-        try {
-
-            // 检查是否已分享过
-            String fileUUID = redisUtil.get("share:file_uuid:" + queryPath);
-            if (fileUUID != null) {
-                return new ServiceResult<>(Result.ALREADY_SHARED, fileUUID);
-            }
-            fileUUID = UUID.randomUUID().toString();
-            redisUtil.set("share:file_uuid:" + queryPath, fileUUID, 7 * 24);
-
-
-            String key = "share:uuid_info:" + fileUUID;
-            redisUtil.hSet(key, "file", queryPath);
-            redisUtil.expire(key, 7 * 24);
-//            if (shareInfo.isSharePublic() && shareInfo.getPassword() == null) {
-//                redisUtil.hSet(key, "public", "true");
-//                redisUtil.zAdd("share:uuid_ranking", fileUUID, 0);
-//            } else {
-//                redisUtil.hSet(key, "public", "false");
-//                redisUtil.hSet(key, "password", shareInfo.getPassword());
-//            }
-
-            return new ServiceResult<>(Result.SUCCESS, fileUUID);
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        // 检查是否已经分享过   // 后续增加redis缓存
+        LambdaQueryWrapper<FileShare> qw1 = new LambdaQueryWrapper<>();
+        qw1.eq(FileShare::getFileId, userFile.getId());
+        FileShare oldFileShare = fileShareMapper.selectOne(qw1);
+        if (oldFileShare != null) {
+            return new ServiceResult<>(Result.ALREADY_SHARED, oldFileShare.getUuid());
         }
 
+        // 未分享过
+        String shareUUID = UUID.randomUUID().toString();
+        fileShare.setFileId(userFile.getId());
+        fileShare.setUuid(shareUUID);
+        fileShare.setId(null);
+        fileShare.setLikes(0);
+
+        fileShareMapper.insert(fileShare);
+
+        return new ServiceResult<>(Result.SUCCESS, shareUUID);
+
+
+//        try {
+//
+//            // 检查是否已分享过
+//            String fileUUID = redisUtil.get("share:file_uuid:" + username + ":" + userFile.getPath());
+//            if (fileUUID != null) {
+//                return new ServiceResult<>(Result.ALREADY_SHARED, fileUUID);
+//            }
+//            fileUUID = UUID.randomUUID().toString();
+//            redisUtil.set("share:file_uuid:" + queryPath, fileUUID, 7 * 24);
+//
+//
+//            String key = "share:uuid_info:" + fileUUID;
+//            redisUtil.hSet(key, "file", queryPath);
+//            redisUtil.expire(key, 7 * 24);
+////            if (shareInfo.isSharePublic() && shareInfo.getPassword() == null) {
+////                redisUtil.hSet(key, "public", "true");
+////                redisUtil.zAdd("share:uuid_ranking", fileUUID, 0);
+////            } else {
+////                redisUtil.hSet(key, "public", "false");
+////                redisUtil.hSet(key, "password", shareInfo.getPassword());
+////            }
+//
+//            return new ServiceResult<>(Result.SUCCESS, fileUUID);
+//
+//        } catch (Exception e) {
+//            throw new RuntimeException(e);
+//        }
     }
 
 
     @Override
     public ServiceResult<Result, String> download(String shareUUID, String password) {
-        String passwd = redisUtil.hGet("share:uuid_info:" + shareUUID, "password");
-        String fileUserPath = null;
 
-        // 检查分享码
-        if (passwd == null || passwd.equals(password)) {
-            fileUserPath = redisUtil.hGet("share:uuid_info:" + shareUUID, "file");
-        }
-
-        if (fileUserPath == null) {
-            return new ServiceResult<>(Result.FAILED, null);
-        }
-        try {
-            QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
-            qw.eq("user_path", fileUserPath);
-            FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
-
-            String fileToken = UUID.randomUUID().toString();
-            redisUtil.hSet("download:" + fileToken, "hash", filePathInfo.getHash());
-            redisUtil.hSet("download:" + fileToken, "size", String.valueOf(filePathInfo.getSize()));
-            redisUtil.hSet("download:" + fileToken, "filename", StringUtils.getFilename(filePathInfo.getUserPath()));
-            redisUtil.expire("download:" + fileToken, 3, TimeUnit.MINUTES);
-
-            return new ServiceResult<>(Result.SUCCESS, fileToken);
-        } catch (Exception e) {
+        // 后续增加redis缓存
+        LambdaQueryWrapper<FileShare> qw = new LambdaQueryWrapper<>();
+        qw.eq(FileShare::getUuid, shareUUID);
+        FileShare fileShare = fileShareMapper.selectOne(qw);
+        if (fileShare == null) {
             return new ServiceResult<>(Result.FAILED, null);
         }
 
+        // 检查是否私密分享
+        if (fileShare.getType() == FileShare.PRIVATE) {
+            if (!Objects.equals(password, fileShare.getPassword())) {
+                return new ServiceResult<>(Result.FAILED, null);
+            }
+        }
+
+        // 查找文件
+        LambdaQueryWrapper<UserFile> qw1 = new LambdaQueryWrapper<>();
+        qw1.eq(UserFile::getId, fileShare.getFileId());
+        UserFile userFile = userFileMapper.selectOne(qw1);
+        if (userFile == null || userFile.getType() == UserFile.TYPE_DIR) {
+            throw new RuntimeException("分享文件未找到");
+        }
+
+        String fileToken = UUID.randomUUID().toString();
+        redisUtil.hSet("download:" + fileToken, "hash", userFile.getHash());
+        redisUtil.hSet("download:" + fileToken, "size", String.valueOf(userFile.getSize()));
+        redisUtil.hSet("download:" + fileToken, "filename", StringUtils.getFilename(userFile.getPath()));
+        redisUtil.expire("download:" + fileToken, 3, TimeUnit.MINUTES);
+
+        return new ServiceResult<>(Result.SUCCESS, fileToken);
+
+
+//        String passwd = redisUtil.hGet("share:uuid_info:" + shareUUID, "password");
+//        String fileUserPath = null;
+//
+//        // 检查分享码
+//        if (passwd == null || passwd.equals(password)) {
+//            fileUserPath = redisUtil.hGet("share:uuid_info:" + shareUUID, "file");
+//        }
+//
+//        if (fileUserPath == null) {
+//            return new ServiceResult<>(Result.FAILED, null);
+//        }
+//        try {
+//            QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
+//            qw.eq("user_path", fileUserPath);
+//            FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
+//
+//            String fileToken = UUID.randomUUID().toString();
+//            redisUtil.hSet("download:" + fileToken, "hash", filePathInfo.getHash());
+//            redisUtil.hSet("download:" + fileToken, "size", String.valueOf(filePathInfo.getSize()));
+//            redisUtil.hSet("download:" + fileToken, "filename", StringUtils.getFilename(filePathInfo.getUserPath()));
+//            redisUtil.expire("download:" + fileToken, 3, TimeUnit.MINUTES);
+//
+//            return new ServiceResult<>(Result.SUCCESS, fileToken);
+//        } catch (Exception e) {
+//            return new ServiceResult<>(Result.FAILED, null);
+//        }
     }
 
 

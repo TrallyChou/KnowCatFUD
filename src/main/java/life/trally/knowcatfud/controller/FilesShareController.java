@@ -1,6 +1,6 @@
 package life.trally.knowcatfud.controller;
 
-import life.trally.knowcatfud.pojo.ShareInfo;
+import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +22,9 @@ public class FilesShareController {
             @RequestHeader("Authorization") String token,
             @PathVariable String username,
             @PathVariable String path,
-            @RequestBody @NonNull ShareInfo shareInfo) {
+            @RequestBody @NonNull FileShare fileShare) {
 
-        ServiceResult<FileShareService.Result, String> r = fileShareService.share(token, username, path, shareInfo);
+        ServiceResult<FileShareService.Result, String> r = fileShareService.share(token, username, path, fileShare);
         return switch (r.getResult()) {
             case SUCCESS -> R.ok().message("分享成功").data("uuid", r.getData());
             case SHARE_NOT_FOUND -> R.error().message("文件未找到");

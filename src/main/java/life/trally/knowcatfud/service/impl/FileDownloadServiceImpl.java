@@ -1,6 +1,5 @@
 package life.trally.knowcatfud.service.impl;
 
-import life.trally.knowcatfud.pojo.FilePathInfo;
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import org.springframework.core.io.AbstractResource;
 import org.springframework.core.io.Resource;
@@ -28,51 +27,6 @@ import java.nio.file.Paths;
 
 @Service
 public class FileDownloadServiceImpl implements FileDownloadService {
-
-    @Override
-    @Deprecated   // 不用了
-    public ResponseEntity<Resource> download(FilePathInfo filePathInfo, String rangeHeader) throws MalformedURLException {
-
-        String fileName = filePathInfo.getHash() + filePathInfo.getSize();
-        Path filePath = Paths.get("files/", fileName);
-        Resource resource = new UrlResource(filePath.toUri());
-        long fileLength = filePathInfo.getSize();
-
-        // 这种情况暂时认为是head请求
-        if (!StringUtils.hasText(rangeHeader)) {
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=\"" + StringUtils.getFilename(filePathInfo.getUserPath()) + "\"")
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .contentLength(filePathInfo.getSize())
-                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                    .body(resource);
-//            return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-//                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-//                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-//                    .body(null);
-        }
-
-        String[] ranges = rangeHeader.substring("bytes=".length()).split("-");
-        long start = Long.parseLong(ranges[0]);
-        long end = ranges.length > 1 ? Long.parseLong(ranges[1]) : fileLength - 1;
-        long contentLength = end - start + 1;
-
-        if (start < 0 || end >= fileLength || start > end) {
-            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
-                    .header(HttpHeaders.CONTENT_RANGE, "bytes */" + fileLength)
-                    .build();
-        }
-
-        RangeResource rangeResource = new RangeResource(resource, start, contentLength);
-
-        return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-                .header(HttpHeaders.CONTENT_RANGE, "bytes " + start + "-" + end + "/" + fileLength)
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .contentLength(contentLength)
-                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                .body(rangeResource);
-    }
 
     @Override
     public ResponseEntity<Resource> download(String fileHash, long fileSize, String fileName, String rangeHeader) throws MalformedURLException {

@@ -1,6 +1,6 @@
 package life.trally.knowcatfud.service.interfaces;
 
-import life.trally.knowcatfud.pojo.ShareInfo;
+import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.service.ServiceResult;
 
 public interface FileShareService {
@@ -14,7 +14,7 @@ public interface FileShareService {
         ALREADY_LIKE
     }
 
-    ServiceResult<Result, String> share(String token, String username, String path, ShareInfo shareInfo);
+    ServiceResult<Result, String> share(String token, String username, String path, FileShare fileShare);
 
     ServiceResult<Result, String> download(String shareUUID, String password);
 

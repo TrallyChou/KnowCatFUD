@@ -15,9 +15,9 @@ import lombok.NoArgsConstructor;
 public class Menu {
 
     @TableId(type = IdType.AUTO)
-    long id;
+    private long id;
 
-    String perm;
-    boolean del_flag;
-    String remark;
+    private String perm;
+    private boolean del_flag;
+    private String remark;
 }
