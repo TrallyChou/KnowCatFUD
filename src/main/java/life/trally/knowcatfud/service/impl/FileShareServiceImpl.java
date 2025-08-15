@@ -205,7 +205,7 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public Result like(String shareUUID) {
 
-        // TODO: 限制每个用户只可点赞一次
+        // TODO: 重写点赞
 
         String key = "share:uuid_info:" + shareUUID;
 
@@ -222,6 +222,7 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public ServiceResult<Result, Object> getLikeRanking() {
 
+        // TODO: 重写点赞
         // TODO: 分页
 
         Set<ZSetOperations.TypedTuple<String>> ranking = redisUtil.zRevRangeWithScore("share:uuid_ranking", 0, 20);
