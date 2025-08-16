@@ -1,5 +1,6 @@
 package life.trally.knowcatfud.controller;
 
+import life.trally.knowcatfud.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
@@ -7,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,15 +18,14 @@ public class FilesShareController {
     private FileShareService fileShareService;
 
     // 分享
-    @PostMapping("/share/{username}/{*path}")
+    @PostMapping("/share/{*path}")
     @PreAuthorize("hasAnyAuthority('files_share:share')")
     public R share(
-            @RequestHeader("Authorization") String token,
-            @PathVariable String username,
+            @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String path,
             @RequestBody @NonNull FileShare fileShare) {
 
-        ServiceResult<FileShareService.Result, String> r = fileShareService.share(token, username, path, fileShare);
+        ServiceResult<FileShareService.Result, String> r = fileShareService.share(loginUser.getUsername(), path, fileShare);
         return switch (r.getResult()) {
             case SUCCESS -> R.ok().message("分享成功").data("uuid", r.getData());
             case SHARE_NOT_FOUND -> R.error().message("文件未找到");

@@ -41,7 +41,7 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             filterChain.doFilter(request, response);
         } catch (Exception e) {
-            filterChain.doFilter(request, response);  // 因为jwt解析失败的访问并不会通过后面的过滤器，所以这里不考虑拦截
+            filterChain.doFilter(request, response);  // 因为jwt解析失败的访问没有得到认证，并不会通过后面的过滤器，所以这里不考虑拦截
         }
 
 

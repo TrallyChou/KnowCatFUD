@@ -14,7 +14,7 @@ public interface FileShareService {
         ALREADY_LIKE
     }
 
-    ServiceResult<Result, String> share(String token, String username, String path, FileShare fileShare);
+    ServiceResult<Result, String> share(String username, String path, FileShare fileShare);
 
     ServiceResult<Result, String> download(String shareUUID, String password);
 

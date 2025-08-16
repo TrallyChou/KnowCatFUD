@@ -4,6 +4,7 @@ package life.trally.knowcatfud.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import life.trally.knowcatfud.dao.FileShareMapper;
 import life.trally.knowcatfud.dao.UserFileMapper;
+import life.trally.knowcatfud.dao.UserLikesShareMapper;
 import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
@@ -20,8 +21,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
-
 @Service
 public class FileShareServiceImpl implements FileShareService {
 
@@ -31,19 +30,18 @@ public class FileShareServiceImpl implements FileShareService {
 
     private final UserFileMapper userFileMapper;
 
-    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtil redisUtil, UserFileMapper userFileMapper) {
+    private final UserLikesShareMapper userLikesShareMapper;
+
+    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtil redisUtil, UserFileMapper userFileMapper, UserLikesShareMapper userLikesShareMapper) {
         this.fileShareMapper = fileShareMapper;
         this.redisUtil = redisUtil;
         this.userFileMapper = userFileMapper;
+        this.userLikesShareMapper = userLikesShareMapper;
     }
 
 
     @Override
-    public ServiceResult<Result, String> share(String token, String username, String path, FileShare fileShare) {
-
-        if (!checkAccess(token, username)) {
-            return new ServiceResult<>(Result.INVALID_ACCESS, null);
-        }
+    public ServiceResult<Result, String> share(String username, String path, FileShare fileShare) {
 
         // 然后检查文件是否存在
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
@@ -93,35 +91,6 @@ public class FileShareServiceImpl implements FileShareService {
         fileShareMapper.insert(fileShare);
 
         return new ServiceResult<>(Result.SUCCESS, shareUUID);
-
-
-//        try {
-//
-//            // 检查是否已分享过
-//            String fileUUID = redisUtil.get("share:file_uuid:" + username + ":" + userFile.getPath());
-//            if (fileUUID != null) {
-//                return new ServiceResult<>(Result.ALREADY_SHARED, fileUUID);
-//            }
-//            fileUUID = UUID.randomUUID().toString();
-//            redisUtil.set("share:file_uuid:" + queryPath, fileUUID, 7 * 24);
-//
-//
-//            String key = "share:uuid_info:" + fileUUID;
-//            redisUtil.hSet(key, "file", queryPath);
-//            redisUtil.expire(key, 7 * 24);
-////            if (shareInfo.isSharePublic() && shareInfo.getPassword() == null) {
-////                redisUtil.hSet(key, "public", "true");
-////                redisUtil.zAdd("share:uuid_ranking", fileUUID, 0);
-////            } else {
-////                redisUtil.hSet(key, "public", "false");
-////                redisUtil.hSet(key, "password", shareInfo.getPassword());
-////            }
-//
-//            return new ServiceResult<>(Result.SUCCESS, fileUUID);
-//
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
 
@@ -172,33 +141,6 @@ public class FileShareServiceImpl implements FileShareService {
 
         return new ServiceResult<>(Result.SUCCESS, fileToken);
 
-
-//        String passwd = redisUtil.hGet("share:uuid_info:" + shareUUID, "password");
-//        String fileUserPath = null;
-//
-//        // 检查分享码
-//        if (passwd == null || passwd.equals(password)) {
-//            fileUserPath = redisUtil.hGet("share:uuid_info:" + shareUUID, "file");
-//        }
-//
-//        if (fileUserPath == null) {
-//            return new ServiceResult<>(Result.FAILED, null);
-//        }
-//        try {
-//            QueryWrapper<FilePathInfo> qw = new QueryWrapper<>();
-//            qw.eq("user_path", fileUserPath);
-//            FilePathInfo filePathInfo = filePathInfoMapper.selectOne(qw);
-//
-//            String fileToken = UUID.randomUUID().toString();
-//            redisUtil.hSet("download:" + fileToken, "hash", filePathInfo.getHash());
-//            redisUtil.hSet("download:" + fileToken, "size", String.valueOf(filePathInfo.getSize()));
-//            redisUtil.hSet("download:" + fileToken, "filename", StringUtils.getFilename(filePathInfo.getUserPath()));
-//            redisUtil.expire("download:" + fileToken, 3, TimeUnit.MINUTES);
-//
-//            return new ServiceResult<>(Result.SUCCESS, fileToken);
-//        } catch (Exception e) {
-//            return new ServiceResult<>(Result.FAILED, null);
-//        }
     }
 
 
@@ -206,6 +148,7 @@ public class FileShareServiceImpl implements FileShareService {
     public Result like(String shareUUID) {
 
         // TODO: 重写点赞
+
 
         String key = "share:uuid_info:" + shareUUID;
 

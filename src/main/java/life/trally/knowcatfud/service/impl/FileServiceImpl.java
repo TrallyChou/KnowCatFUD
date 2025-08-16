@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static life.trally.knowcatfud.utils.AccessCheckUtil.checkAccess;
-
 @Service
 public class FileServiceImpl implements FileService {
 
@@ -42,7 +40,6 @@ public class FileServiceImpl implements FileService {
     /**
      * 文件上传和创建目录
      *
-     * @param token
      * @param username
      * @param path
      * @param multipartFile
@@ -50,11 +47,7 @@ public class FileServiceImpl implements FileService {
      * @return
      */
     @Override
-    public Result uploadOrMkdir(String token, String username, String path, MultipartFile multipartFile, UserFile userFile) {
-
-        if (!checkAccess(token, username)) {   // 非法访问
-            return Result.INVALID_ACCESS;
-        }
+    public Result uploadOrMkdir(String username, String path, MultipartFile multipartFile, UserFile userFile) {
 
         userFile.setUsername(username);
         userFile.setPath(path);
@@ -166,17 +159,12 @@ public class FileServiceImpl implements FileService {
     /**
      * 文件列表获取、文件下载token获取
      *
-     * @param token
      * @param username
      * @param path
      * @return
      */
     @Override
-    public ServiceResult<Result, Object> listOrDownload(String token, String username, String path) {
-
-        if (!checkAccess(token, username)) {
-            return new ServiceResult<>(Result.INVALID_ACCESS, null);
-        }
+    public ServiceResult<Result, Object> listOrDownload(String username, String path) {
 
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
         qw.eq(UserFile::getUsername, username).eq(UserFile::getPath, path);
@@ -242,10 +230,7 @@ public class FileServiceImpl implements FileService {
 
 
     @Override
-    public Result delete(String token, String username, String path) {
-        if (!checkAccess(token, username)) {
-            return Result.INVALID_ACCESS;
-        }
+    public Result delete(String username, String path) {
 
         if ("/".equals(path)) {
             return Result.DELETE_FAILED;
