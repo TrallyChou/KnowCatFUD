@@ -37,6 +37,10 @@ public class FilesShareController {
         };
     }
 
+    // 删除分享
+    // TODO:delete
+
+
     // 下载
     @GetMapping(value = "/share/{shareUUID}")
     //@PreAuthorize("hasAnyAuthority('files_share:download')")
@@ -72,25 +76,26 @@ public class FilesShareController {
     public R likeStatus(
             @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String shareUUID) {
-        return switch (fileShareService.like(loginUser.getId(), shareUUID)) {
-            case SUCCESS -> R.ok().message("点赞成功");
+        return switch (fileShareService.likeStatus(loginUser.getId(), shareUUID)) {
             case ALREADY_LIKE -> R.ok().message("已经点过赞");
-            default -> R.error().message("点赞失败");
+            case NOT_LIKE -> R.ok().message("未点赞");
+            default -> R.error().message("获取失败");
         };
     }
 
     // 获取点赞数
-    @GetMapping("/share/{shareUUID}/likes")
-    //@PreAuthorize("hasAnyAuthority('files_share:like_count')")
-    public R likeCount(
-            @AuthenticationPrincipal LoginUser loginUser,
-            @PathVariable String shareUUID) {
-        return switch (fileShareService.like(loginUser.getId(), shareUUID)) {
-            case SUCCESS -> R.ok().message("点赞成功");
-            case ALREADY_LIKE -> R.ok().message("已经点过赞");
-            default -> R.error().message("点赞失败");
-        };
-    }
+    // TODO:
+//    @GetMapping("/share/{shareUUID}/likes")
+//    //@PreAuthorize("hasAnyAuthority('files_share:like_count')")
+//    public R likeCount(
+//            @AuthenticationPrincipal LoginUser loginUser,
+//            @PathVariable String shareUUID) {
+//        return switch (fileShareService.like(loginUser.getId(), shareUUID)) {
+//            case SUCCESS -> R.ok().message("点赞成功");
+//            case ALREADY_LIKE -> R.ok().message("已经点过赞");
+//            default -> R.error().message("点赞失败");
+//        };
+//    }
 
     // 获取点赞排行榜
     @GetMapping("/share")

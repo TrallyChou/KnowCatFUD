@@ -11,7 +11,8 @@ public interface FileShareService {
         SHARE_NOT_FOUND,
         ALREADY_SHARED,
         INVALID_ACCESS,
-        ALREADY_LIKE
+        ALREADY_LIKE,
+        NOT_LIKE
     }
 
     ServiceResult<Result, String> share(Long userId, String path, FileShare fileShare);
@@ -19,6 +20,8 @@ public interface FileShareService {
     ServiceResult<Result, String> download(String shareUUID, String password);
 
     Result like(Long userId,String shareUUID);
+
+    Result likeStatus(Long userId,String shareUUID);
 
     ServiceResult<Result, Object> getLikeRanking();
 }

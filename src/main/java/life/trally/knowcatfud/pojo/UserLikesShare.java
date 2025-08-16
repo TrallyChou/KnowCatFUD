@@ -16,6 +16,6 @@ public class UserLikesShare {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private Long user;
-    private Long share;
+    private Long userId;
+    private Long shareId;
 }

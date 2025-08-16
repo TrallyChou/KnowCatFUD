@@ -150,19 +150,72 @@ public class FileShareServiceImpl implements FileShareService {
 
         // TODO: redis缓存
 
-        LambdaQueryWrapper<UserLikesShare> qw = new LambdaQueryWrapper<>();
 
+        // 查分享id（以后改为优先用缓存）
+        LambdaQueryWrapper<FileShare> qw = new LambdaQueryWrapper<>();
+        qw.eq(FileShare::getUuid, shareUUID);
+        FileShare fileShare = fileShareMapper.selectOne(qw);
 
-        String key = "share:uuid_info:" + shareUUID;
-
-        if (!redisUtil.exists(key)) {
-            return Result.SHARE_NOT_FOUND;
-        }
-        if (!"true".equals(redisUtil.hGet(key, "public"))) {
+        // 分享不存在
+        if(fileShare == null){
             return Result.FAILED;
         }
-        redisUtil.zIncrby("share:uuid_ranking", shareUUID, 1);
+
+        Long shareId = fileShare.getId();
+
+
+
+        // 查点赞情况，避免重复点赞
+        LambdaQueryWrapper<UserLikesShare> qw1 = new LambdaQueryWrapper<>();
+        qw1.eq(UserLikesShare::getShareId, shareId)
+                .eq(UserLikesShare::getUserId, userId);
+        UserLikesShare userLikesShare = userLikesShareMapper.selectOne(qw1);
+        if (userLikesShare != null) {
+            return Result.ALREADY_LIKE;
+        }
+
+        // 点赞
+        userLikesShare = new UserLikesShare();
+        userLikesShare.setUserId(userId);
+        userLikesShare.setShareId(shareId);
+        userLikesShareMapper.insert(userLikesShare);
+
+        // 更新share的likes数量
+        fileShare.setLikes(fileShare.getLikes() + 1);
+        fileShareMapper.updateById(fileShare);
+
         return Result.SUCCESS;
+    }
+
+    @Override
+    public Result likeStatus(Long userId, String shareUUID) {
+
+        // 重复代码后续优化
+
+        // 查分享id（以后改为优先用缓存）
+        LambdaQueryWrapper<FileShare> qw = new LambdaQueryWrapper<>();
+        qw.eq(FileShare::getUuid, shareUUID);
+        FileShare fileShare = fileShareMapper.selectOne(qw);
+
+        // 分享不存在
+        if(fileShare == null){
+            return Result.FAILED;
+        }
+
+        Long shareId = fileShare.getId();
+
+
+
+        // 查点赞情况，避免重复点赞
+        LambdaQueryWrapper<UserLikesShare> qw1 = new LambdaQueryWrapper<>();
+        qw1.eq(UserLikesShare::getShareId, shareId)
+                .eq(UserLikesShare::getUserId, userId);
+        UserLikesShare userLikesShare = userLikesShareMapper.selectOne(qw1);
+        if (userLikesShare != null) {
+            return Result.ALREADY_LIKE;
+        }
+
+        return Result.NOT_LIKE;
     }
 
     @Override
