@@ -14,11 +14,11 @@ public interface FileShareService {
         ALREADY_LIKE
     }
 
-    ServiceResult<Result, String> share(String username, String path, FileShare fileShare);
+    ServiceResult<Result, String> share(Long userId, String path, FileShare fileShare);
 
     ServiceResult<Result, String> download(String shareUUID, String password);
 
-    Result like(String shareUUID);
+    Result like(Long userId,String shareUUID);
 
     ServiceResult<Result, Object> getLikeRanking();
 }

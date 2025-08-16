@@ -69,7 +69,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (userMapper.selectOne(queryWrapper) == null) {  // 用户不存在
             User userInsert = new User(null, user.getUsername(), passwordEncoder.encode(user.getPassword()));
             userMapper.insert(userInsert);
-            userFileMapper.insert(UserFile.rootDir(user.getUsername()));
+            userFileMapper.insert(UserFile.rootDir(userInsert.getId()));  // 插入后会自动注入id
             return Result.SUCCESS;
         } else {
             return Result.USER_ALREADY_EXIST;

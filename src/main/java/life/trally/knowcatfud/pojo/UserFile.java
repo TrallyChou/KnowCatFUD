@@ -21,7 +21,7 @@ public class UserFile {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String username;
+    private Long userId;      // username仅用作登录，数据库存储内容皆用user_id
     private String filename;
     private String parent;
     private String path;
@@ -30,8 +30,8 @@ public class UserFile {
     private String hash;
     private Integer size;
 
-    public static UserFile rootDir(String username) {
-        return new UserFile(null, username, null, null, "/", null, TYPE_DIR, null, null);
+    public static UserFile rootDir(Long userId) {
+        return new UserFile(null, userId, null, null, "/", null, TYPE_DIR, null, null);
     }
 
 

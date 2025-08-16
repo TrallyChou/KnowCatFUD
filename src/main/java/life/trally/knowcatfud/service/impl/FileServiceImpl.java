@@ -40,16 +40,16 @@ public class FileServiceImpl implements FileService {
     /**
      * 文件上传和创建目录
      *
-     * @param username
+     * @param userId
      * @param path
      * @param multipartFile
      * @param userFile
      * @return
      */
     @Override
-    public Result uploadOrMkdir(String username, String path, MultipartFile multipartFile, UserFile userFile) {
+    public Result uploadOrMkdir(Long userId, String path, MultipartFile multipartFile, UserFile userFile) {
 
-        userFile.setUsername(username);
+        userFile.setUserId(userId);
         userFile.setPath(path);
         userFile.setId(null);
         userFile.setCreatedAt(null);
@@ -60,7 +60,7 @@ public class FileServiceImpl implements FileService {
 
         // 查询是否重名
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserFile::getUsername, username).eq(UserFile::getPath, userFile.getPath());
+        qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, userFile.getPath());
         UserFile oldUserFile = userFileMapper.selectOne(qw);
 
         if (oldUserFile != null) {
@@ -77,7 +77,7 @@ public class FileServiceImpl implements FileService {
             // getParent()对于根目录会返回"/"，但是对于其它目录会不以/结尾，这里进行了统一
             parent = parent + "/";
         }
-        qw1.eq(UserFile::getUsername, username).eq(UserFile::getPath, parent);
+        qw1.eq(UserFile::getUserId, userId).eq(UserFile::getPath, parent);
 
         UserFile parentPath = userFileMapper.selectOne(qw1);
         if (parentPath == null) {
@@ -159,15 +159,15 @@ public class FileServiceImpl implements FileService {
     /**
      * 文件列表获取、文件下载token获取
      *
-     * @param username
+     * @param userId
      * @param path
      * @return
      */
     @Override
-    public ServiceResult<Result, Object> listOrDownload(String username, String path) {
+    public ServiceResult<Result, Object> listOrDownload(Long userId, String path) {
 
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserFile::getUsername, username).eq(UserFile::getPath, path);
+        qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, path);
         UserFile userFile = userFileMapper.selectOne(qw);
 
         if (userFile == null) {
@@ -179,7 +179,7 @@ public class FileServiceImpl implements FileService {
 
                 LambdaQueryWrapper<UserFile> qw1 = new LambdaQueryWrapper<>();
 
-                qw1.eq(UserFile::getUsername, username)
+                qw1.eq(UserFile::getUserId, userId)
                         .eq(UserFile::getParent, path);     // 根据父目录查询列表
 
                 List<UserFile> filesInDir = userFileMapper.selectList(qw1);
@@ -230,14 +230,14 @@ public class FileServiceImpl implements FileService {
 
 
     @Override
-    public Result delete(String username, String path) {
+    public Result delete(Long userId, String path) {
 
         if ("/".equals(path)) {
             return Result.DELETE_FAILED;
         }
 
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserFile::getUsername, username).eq(UserFile::getPath, path);
+        qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, path);
         UserFile userFile = userFileMapper.selectOne(qw);
 
         if (userFile == null) {

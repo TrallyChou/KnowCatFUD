@@ -7,6 +7,7 @@ import life.trally.knowcatfud.dao.UserFileMapper;
 import life.trally.knowcatfud.dao.UserLikesShareMapper;
 import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.pojo.UserFile;
+import life.trally.knowcatfud.pojo.UserLikesShare;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
 import life.trally.knowcatfud.utils.RedisUtil;
@@ -41,11 +42,11 @@ public class FileShareServiceImpl implements FileShareService {
 
 
     @Override
-    public ServiceResult<Result, String> share(String username, String path, FileShare fileShare) {
+    public ServiceResult<Result, String> share(Long userId, String path, FileShare fileShare) {
 
         // 然后检查文件是否存在
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
-        qw.eq(UserFile::getUsername, username).eq(UserFile::getPath, path);
+        qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, path);
         UserFile userFile = userFileMapper.selectOne(qw);
 
 
@@ -97,7 +98,7 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public ServiceResult<Result, String> download(String shareUUID, String password) {
 
-        // 后续增加redis缓存
+        // TODO:redis缓存
         LambdaQueryWrapper<FileShare> qw = new LambdaQueryWrapper<>();
         qw.eq(FileShare::getUuid, shareUUID);
         FileShare fileShare = fileShareMapper.selectOne(qw);
@@ -145,9 +146,11 @@ public class FileShareServiceImpl implements FileShareService {
 
 
     @Override
-    public Result like(String shareUUID) {
+    public Result like(Long userId, String shareUUID) {
 
-        // TODO: 重写点赞
+        // TODO: redis缓存
+
+        LambdaQueryWrapper<UserLikesShare> qw = new LambdaQueryWrapper<>();
 
 
         String key = "share:uuid_info:" + shareUUID;

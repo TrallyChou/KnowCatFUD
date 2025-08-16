@@ -4,7 +4,6 @@ import life.trally.knowcatfud.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,8 +13,11 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 public class FilesShareController {
 
-    @Autowired
-    private FileShareService fileShareService;
+    private final FileShareService fileShareService;
+
+    public FilesShareController(FileShareService fileShareService) {
+        this.fileShareService = fileShareService;
+    }
 
     // 分享
     @PostMapping("/share/{*path}")
@@ -25,7 +27,7 @@ public class FilesShareController {
             @PathVariable String path,
             @RequestBody @NonNull FileShare fileShare) {
 
-        ServiceResult<FileShareService.Result, String> r = fileShareService.share(loginUser.getUsername(), path, fileShare);
+        ServiceResult<FileShareService.Result, String> r = fileShareService.share(loginUser.getId(), path, fileShare);
         return switch (r.getResult()) {
             case SUCCESS -> R.ok().message("分享成功").data("uuid", r.getData());
             case SHARE_NOT_FOUND -> R.error().message("文件未找到");
@@ -54,8 +56,36 @@ public class FilesShareController {
     // 点赞
     @PatchMapping("/share/{shareUUID}/like")
     @PreAuthorize("hasAnyAuthority('files_share:like')")
-    public R like(@PathVariable String shareUUID) {
-        return switch (fileShareService.like(shareUUID)) {
+    public R like(
+            @AuthenticationPrincipal LoginUser loginUser,
+            @PathVariable String shareUUID) {
+        return switch (fileShareService.like(loginUser.getId(), shareUUID)) {
+            case SUCCESS -> R.ok().message("点赞成功");
+            case ALREADY_LIKE -> R.ok().message("已经点过赞");
+            default -> R.error().message("点赞失败");
+        };
+    }
+
+    // 获取点赞状态
+    @GetMapping("/share/{shareUUID}/like")
+    //@PreAuthorize("hasAnyAuthority('files_share:like_count')")
+    public R likeStatus(
+            @AuthenticationPrincipal LoginUser loginUser,
+            @PathVariable String shareUUID) {
+        return switch (fileShareService.like(loginUser.getId(), shareUUID)) {
+            case SUCCESS -> R.ok().message("点赞成功");
+            case ALREADY_LIKE -> R.ok().message("已经点过赞");
+            default -> R.error().message("点赞失败");
+        };
+    }
+
+    // 获取点赞数
+    @GetMapping("/share/{shareUUID}/likes")
+    //@PreAuthorize("hasAnyAuthority('files_share:like_count')")
+    public R likeCount(
+            @AuthenticationPrincipal LoginUser loginUser,
+            @PathVariable String shareUUID) {
+        return switch (fileShareService.like(loginUser.getId(), shareUUID)) {
             case SUCCESS -> R.ok().message("点赞成功");
             case ALREADY_LIKE -> R.ok().message("已经点过赞");
             default -> R.error().message("点赞失败");

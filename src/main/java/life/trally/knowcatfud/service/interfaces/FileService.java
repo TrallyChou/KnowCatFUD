@@ -21,12 +21,12 @@ public interface FileService {
         INVALID_ACCESS
     }
 
-    Result uploadOrMkdir(String username, String path, MultipartFile multipartFile, UserFile userFile);
+    Result uploadOrMkdir(Long userId, String path, MultipartFile multipartFile, UserFile userFile);
 
-    ServiceResult<Result, Object> listOrDownload(String username, String path);
+    ServiceResult<Result, Object> listOrDownload(Long userId, String path);
 
     ResponseEntity<Resource> download(String token, String range);
 
-    Result delete(String username, String path);
+    Result delete(Long userId, String path);
 
 }
