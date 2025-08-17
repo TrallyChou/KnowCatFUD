@@ -160,6 +160,7 @@ public class FileShareServiceImpl implements FileShareService {
             return Result.FAILED;
         }
 
+        // 用户已点赞
         if (checkIfLiked(userId, shareId)) {
             return Result.ALREADY_LIKE;
         }
@@ -194,6 +195,26 @@ public class FileShareServiceImpl implements FileShareService {
         }
 
         return Result.NOT_LIKE;
+    }
+
+    @Override
+    public ServiceResult<Result, String> likesCount(String shareUUID) {
+        String shareId = uuid2Id(shareUUID);
+        if (shareId == null) {
+            return new ServiceResult<>(Result.FAILED, null);
+        }
+
+        String likesCountString;
+        String infoKey = "share:info:" + shareId;
+
+        int type = Integer.parseInt(redisUtil.hGet(infoKey, "type"));
+        if (type == FileShare.PUBLIC_RANKING) {
+            likesCountString = String.valueOf(redisUtil.zScore("share:ranking", shareId));
+        } else {
+            likesCountString = redisUtil.hGet(infoKey, "likes");
+        }
+
+        return new ServiceResult<>(Result.SUCCESS, likesCountString);
     }
 
     @Override
@@ -233,6 +254,8 @@ public class FileShareServiceImpl implements FileShareService {
             return null;
         }
 
+        // TODO: 这里还需要判断分享是否过期
+
         // 分享存在，加入缓存
         // 1.缓存uuid对应的share id
 
@@ -240,19 +263,37 @@ public class FileShareServiceImpl implements FileShareService {
         shareId = String.valueOf(shareIdLong);
         redisUtil.set("share:uuid_id:" + shareUUID, shareId);
 
+        String infoKey = "share:info:" + shareId;
+
         // 2.缓存分享信息
+        redisUtil.hSet(infoKey, "file_id", String.valueOf(fileShare.getFileId()));
+        redisUtil.hSet(infoKey, "type", String.valueOf(fileShare.getType()));
+        redisUtil.hSet(infoKey, "password", fileShare.getPassword());
+        redisUtil.hSet(infoKey, "introduction", fileShare.getIntroduction());
+        redisUtil.hSet(infoKey, "created_at", String.valueOf(fileShare.getCreatedAt()));
+        redisUtil.hSet(infoKey, "expire", String.valueOf(fileShare.getExpire()));
 
         // 3.缓存点赞列表
         List<String> likeUsers = userLikesShareMapper.getLikeUsers(shareIdLong);
         redisUtil.sAdd("share:likes:" + shareId, likeUsers);
 
-        // 缓存点赞数...后续改为只对公开且参与排行的分享使用有序集合
+        // 缓存点赞数...
+
         Long likesCount = redisUtil.sSize("share:likes:" + shareId);
-        redisUtil.zAdd("share:ranking", shareId, likesCount);
+        // 公开且排行分享
+        if (fileShare.getType() == FileShare.PUBLIC_RANKING) {
+            redisUtil.zAdd("share:ranking", shareId, likesCount);
+        } else {
+            // 非公开分享 将获赞数量缓存于分享信息
+            redisUtil.hSet(infoKey, "likes", String.valueOf(likesCount));
+        }
 
         // 为以上key设置过期时间3天
-        redisUtil.expire("share:uuid_id:" + shareUUID, 3, TimeUnit.DAYS);
-        redisUtil.expire("share:likes:" + shareId, 3, TimeUnit.DAYS);
+        redisUtil.expire("share:uuid_id:" + shareUUID, 6, TimeUnit.HOURS);
+        redisUtil.expire("share:likes:" + shareId, 6, TimeUnit.HOURS);
+        redisUtil.expire("share:info:" + shareId, 6, TimeUnit.HOURS);
+        // 点赞数由于使用有序集合存储，所以需要额外处理过期，但数据量仅为帖子数量，足够小，所以暂时不做过期处理...
+        // 而且实际上，让点赞数较低 的
 
         return shareId;
     }

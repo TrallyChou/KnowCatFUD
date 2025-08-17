@@ -36,7 +36,11 @@ public class RedisUtil {
     }
 
     public void hSet(String key, String field, String value) {
-        redisTemplate.opsForHash().put(key, field, value);
+        if (value != null) {
+            redisTemplate.opsForHash().put(key, field, value);
+        } else {
+            redisTemplate.opsForHash().delete(key, field);   // 直接存入null会抛出异常
+        }
     }
 
     public String hGet(String key, String field) {

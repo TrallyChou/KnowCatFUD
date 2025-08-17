@@ -72,7 +72,7 @@ public class FilesShareController {
 
     // 获取点赞状态
     @GetMapping("/share/{shareUUID}/like")
-    //@PreAuthorize("hasAnyAuthority('files_share:like_count')")
+    @PreAuthorize("hasAnyAuthority('files_share:like')")
     public R likeStatus(
             @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String shareUUID) {
@@ -84,18 +84,16 @@ public class FilesShareController {
     }
 
     // 获取点赞数
-    // TODO:
-//    @GetMapping("/share/{shareUUID}/likes")
-//    //@PreAuthorize("hasAnyAuthority('files_share:like_count')")
-//    public R likeCount(
-//            @AuthenticationPrincipal LoginUser loginUser,
-//            @PathVariable String shareUUID) {
-//        return switch (fileShareService.like(loginUser.getId(), shareUUID)) {
-//            case SUCCESS -> R.ok().message("点赞成功");
-//            case ALREADY_LIKE -> R.ok().message("已经点过赞");
-//            default -> R.error().message("点赞失败");
-//        };
-//    }
+    @GetMapping("/share/{shareUUID}/likes")
+    // 该功能无需登录，无需权限   @PreAuthorize("hasAnyAuthority('files_share:like')")
+    public R likeCount(
+            @PathVariable String shareUUID) {
+        var r = fileShareService.likesCount(shareUUID);
+        return switch (r.getResult()) {
+            case SUCCESS -> R.ok().data("likes_count", r.getData());
+            default -> R.error().message("获取点赞数失败");
+        };
+    }
 
     // 获取点赞排行榜
     @GetMapping("/share")

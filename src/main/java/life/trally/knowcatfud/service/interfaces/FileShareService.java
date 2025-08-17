@@ -19,9 +19,11 @@ public interface FileShareService {
 
     ServiceResult<Result, String> download(String shareUUID, String password);
 
-    Result like(Long userId,String shareUUID);
+    Result like(Long userId, String shareUUID);
 
-    Result likeStatus(Long userId,String shareUUID);
+    Result likeStatus(Long userId, String shareUUID);
+
+    ServiceResult<Result, String> likesCount(String shareUUID);
 
     ServiceResult<Result, Object> getLikeRanking();
 }
