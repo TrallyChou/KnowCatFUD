@@ -9,17 +9,16 @@ import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
-import life.trally.knowcatfud.utils.RedisUtil;
+import life.trally.knowcatfud.utils.JsonUtils;
+import life.trally.knowcatfud.utils.RedisUtils;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -27,17 +26,20 @@ public class FileShareServiceImpl implements FileShareService {
 
     private final FileShareMapper fileShareMapper;
 
-    private final RedisUtil redisUtil;
+    private final RedisUtils redisUtil;
 
     private final UserFileMapper userFileMapper;
 
     private final UserLikesShareMapper userLikesShareMapper;
 
-    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtil redisUtil, UserFileMapper userFileMapper, UserLikesShareMapper userLikesShareMapper) {
+    private final RabbitTemplate rabbitTemplate;
+
+    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtils redisUtil, UserFileMapper userFileMapper, UserLikesShareMapper userLikesShareMapper, RabbitTemplate rabbitTemplate) {
         this.fileShareMapper = fileShareMapper;
         this.redisUtil = redisUtil;
         this.userFileMapper = userFileMapper;
         this.userLikesShareMapper = userLikesShareMapper;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
 
@@ -152,8 +154,6 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public Result like(Long userId, String shareUUID) {
 
-        // TODO: redis缓存
-
         String shareId = uuid2Id(shareUUID);
         // 分享不存在
         if (shareId == null) {
@@ -170,10 +170,20 @@ public class FileShareServiceImpl implements FileShareService {
         redisUtil.zIncrby("share:ranking", shareId, 1);
 
         // 同步到mysql....使用消息队列
-//        userLikesShare = new UserLikesShare();
-//        userLikesShare.setUserId(userId);
-//        userLikesShare.setShareId(shareId);
-//        userLikesShareMapper.insert(userLikesShare);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put("userId", userId);
+        event.put("shareId", Long.valueOf(shareId));
+        event.put("uuid", UUID.randomUUID().toString());
+
+
+        String message = JsonUtils.serialize(event);
+
+        rabbitTemplate.convertAndSend(
+                "knowcatfud.likes",
+                "like",
+                message
+        );
 
         return Result.SUCCESS;
     }
@@ -273,13 +283,14 @@ public class FileShareServiceImpl implements FileShareService {
         redisUtil.hSet(infoKey, "created_at", String.valueOf(fileShare.getCreatedAt()));
         redisUtil.hSet(infoKey, "expire", String.valueOf(fileShare.getExpire()));
 
-        // 3.缓存点赞列表
+        // 3.缓存点赞列表 和 点赞数
+        Long likesCount = 0L;
         List<String> likeUsers = userLikesShareMapper.getLikeUsers(shareIdLong);
-        redisUtil.sAdd("share:likes:" + shareId, likeUsers);
+        if (!likeUsers.isEmpty()) {
+            redisUtil.sAdd("share:likes:" + shareId, likeUsers);
+            likesCount = redisUtil.sSize("share:likes:" + shareId);
+        }
 
-        // 缓存点赞数...
-
-        Long likesCount = redisUtil.sSize("share:likes:" + shareId);
         // 公开且排行分享
         if (fileShare.getType() == FileShare.PUBLIC_RANKING) {
             redisUtil.zAdd("share:ranking", shareId, likesCount);

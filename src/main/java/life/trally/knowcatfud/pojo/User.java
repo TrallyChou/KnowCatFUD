@@ -1,9 +1,9 @@
 package life.trally.knowcatfud.pojo;
 
-import com.alibaba.fastjson2.annotation.JSONField;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,6 +20,6 @@ public class User implements Serializable {
     private Long id;
     private String username;
 
-    @JSONField(serialize = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)  // 仅允许反序列化，不允许序列化
     private String password;
 }

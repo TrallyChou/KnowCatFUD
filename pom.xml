@@ -67,20 +67,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jdbc</artifactId>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.mybatis.spring.boot/mybatis-spring-boot-starter -->
-        <!--		<dependency>-->
-        <!--			<groupId>org.mybatis.spring.boot</groupId>-->
-        <!--			<artifactId>mybatis-spring-boot-starter</artifactId>-->
-        <!--			<version>3.0.5</version>-->
-        <!--		</dependency>-->
-
-        <!--		错误的包-->
-        <!--		&lt;!&ndash; https://mvnrepository.com/artifact/com.baomidou/mybatis-plus-boot-starter &ndash;&gt;-->
-        <!--		<dependency>-->
-        <!--			<groupId>com.baomidou</groupId>-->
-        <!--			<artifactId>mybatis-plus-boot-starter</artifactId>-->
-        <!--			<version>3.5.12</version>-->
-        <!--		</dependency>-->
 
         <!--正确的包-->
         <!-- https://mvnrepository.com/artifact/com.baomidou/mybatis-plus-spring-boot3-starter -->
@@ -118,12 +104,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 -->
-        <dependency>
-            <groupId>com.alibaba.fastjson2</groupId>
-            <artifactId>fastjson2</artifactId>
-            <version>2.0.57</version>
-        </dependency>
+<!--        &lt;!&ndash; https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>com.alibaba.fastjson2</groupId>-->
+<!--            <artifactId>fastjson2</artifactId>-->
+<!--            <version>2.0.57</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
@@ -134,20 +120,15 @@
             <version>13.0</version>
             <scope>compile</scope>
         </dependency>
-
-        <!--		&lt;!&ndash; https://mvnrepository.com/artifact/org.mybatis/mybatis &ndash;&gt;-->
-        <!--		<dependency>-->
-        <!--			<groupId>org.mybatis</groupId>-->
-        <!--			<artifactId>mybatis</artifactId>-->
-        <!--			<version>3.5.19</version>-->
-        <!--		</dependency>-->
-
-        <!--		&lt;!&ndash; https://mvnrepository.com/artifact/org.mybatis/mybatis-spring &ndash;&gt;-->
-        <!--		<dependency>-->
-        <!--			<groupId>org.mybatis</groupId>-->
-        <!--			<artifactId>mybatis-spring</artifactId>-->
-        <!--			<version>3.0.5</version>-->
-        <!--		</dependency>-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.amqp</groupId>
+            <artifactId>spring-rabbit-test</artifactId>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 

@@ -5,7 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 
-public class FileUtil {
+public class FileUtils {
     // 辅助方法：字节数组转十六进制字符串
     private static String bytesToHex(byte[] bytes) {
         StringBuilder hexString = new StringBuilder();

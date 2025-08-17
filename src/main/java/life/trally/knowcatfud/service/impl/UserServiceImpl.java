@@ -1,6 +1,5 @@
 package life.trally.knowcatfud.service.impl;
 
-import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import life.trally.knowcatfud.dao.UserFileMapper;
@@ -9,7 +8,8 @@ import life.trally.knowcatfud.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.User;
 import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.interfaces.UserService;
-import life.trally.knowcatfud.utils.JwtUtil;
+import life.trally.knowcatfud.utils.JsonUtils;
+import life.trally.knowcatfud.utils.JwtUtils;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -56,7 +56,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
          * subject: LoginUser
          */
 
-        String jwt = JwtUtil.generateToken(claims, JSON.toJSONString(principle));
+        String jwt = JwtUtils.generateToken(claims, JsonUtils.serialize(principle));
 
         return jwt;
     }

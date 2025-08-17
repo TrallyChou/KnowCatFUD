@@ -1,9 +1,11 @@
 package life.trally.knowcatfud.jwt;
 
-import com.alibaba.fastjson2.annotation.JSONField;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import life.trally.knowcatfud.pojo.User;
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -13,12 +15,14 @@ import java.util.Collection;
 import java.util.List;
 
 @Data
+@NoArgsConstructor     // Jackson需要一个无参构造器
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class LoginUser implements UserDetails {
     private User user;
     private List<String> list;   // 权限列表 坑：千万不要把这个List命名为authorities，否则会被lombok的@Data重写getAuthorities
 
-    @JSONField(serialize = false)
-    private List<SimpleGrantedAuthority> authorities;  //
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private List<SimpleGrantedAuthority> authorities;
 
     public LoginUser(User user, List<String> list) {
         this.user = user;
@@ -26,15 +30,15 @@ public class LoginUser implements UserDetails {
     }
 
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if(authorities != null){
+        if (authorities != null) {
             return authorities;
         }
-        authorities =new ArrayList<>();
+        authorities = new ArrayList<>();
         list.forEach(perm -> this.authorities.add(new SimpleGrantedAuthority(perm)));
         return authorities;
     }
 
-    public Long getId(){
+    public Long getId() {
         return user.getId();
     }
 

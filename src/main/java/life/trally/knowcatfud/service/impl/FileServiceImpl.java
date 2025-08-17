@@ -6,8 +6,8 @@ import life.trally.knowcatfud.pojo.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileService;
-import life.trally.knowcatfud.utils.FileUtil;
-import life.trally.knowcatfud.utils.RedisUtil;
+import life.trally.knowcatfud.utils.FileUtils;
+import life.trally.knowcatfud.utils.RedisUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -29,9 +29,9 @@ public class FileServiceImpl implements FileService {
     private final UserFileMapper userFileMapper;
 
     private final FileDownloadService fileDownloadService;
-    private final RedisUtil redisUtil;
+    private final RedisUtils redisUtil;
 
-    public FileServiceImpl(UserFileMapper userFileMapper, FileDownloadService fileDownloadService, RedisUtil redisUtil) {
+    public FileServiceImpl(UserFileMapper userFileMapper, FileDownloadService fileDownloadService, RedisUtils redisUtil) {
         this.userFileMapper = userFileMapper;
         this.fileDownloadService = fileDownloadService;
         this.redisUtil = redisUtil;
@@ -136,7 +136,7 @@ public class FileServiceImpl implements FileService {
             // 服务器获取文件，存入缓存目录
             Files.copy(multipartFile.getInputStream(), cachePath, StandardCopyOption.REPLACE_EXISTING);
 
-            String fileRealHash = FileUtil.nioSHA256(cachePath);
+            String fileRealHash = FileUtils.nioSHA256(cachePath);
 
             // 检查文件哈希和大小 存在大小写问题，后面存储时统一转换为由nioSHA256得到的HASH
             if (!fileRealHash.equalsIgnoreCase(userFile.getHash())

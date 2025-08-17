@@ -12,7 +12,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class JwtUtil {
+public class JwtUtils {
     // 使用安全的密钥生成方式
     private static final Key SECRET_KEY;
 
