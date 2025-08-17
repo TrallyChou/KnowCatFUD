@@ -166,6 +166,8 @@ public class FileServiceImpl implements FileService {
     @Override
     public ServiceResult<Result, Object> listOrDownload(Long userId, String path) {
 
+        // TODO: 这是最常用的功能，后续应该对文件列表使用缓存
+
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
         qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, path);
         UserFile userFile = userFileMapper.selectOne(qw);

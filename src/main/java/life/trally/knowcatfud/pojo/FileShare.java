@@ -28,5 +28,4 @@ public class FileShare {
     private String introduction;
     private Timestamp createdAt;
     private Integer expire;
-    private Integer likes = 0;   // 缓存点赞数
 }

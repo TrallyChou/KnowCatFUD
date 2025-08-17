@@ -5,6 +5,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -54,12 +55,36 @@ public class RedisUtil {
         redisTemplate.opsForZSet().add(key, value, score);
     }
 
+    public Double zScore(String key, String value) {
+        return redisTemplate.opsForZSet().score(key, value);
+    }
+
     public void zDel(String key, String value) {
         redisTemplate.opsForZSet().remove(key, value);
     }
 
     public void zIncrby(String key, String value, int delta) {
         redisTemplate.opsForZSet().incrementScore(key, value, delta);
+    }
+
+    public void sAdd(String key, String value) {
+        redisTemplate.opsForSet().add(key, value);
+    }
+
+    public void sDel(String key, String value) {
+        redisTemplate.opsForSet().remove(key, value);
+    }
+
+    public void sAdd(String key, List<String> value) {
+        redisTemplate.opsForSet().add(key, value.toArray(new String[0]));
+    }
+
+    public Long sSize(String key) {
+        return redisTemplate.opsForSet().size(key);
+    }
+
+    public Boolean sIsMember(String key, String value) {
+        return redisTemplate.opsForSet().isMember(key, value);
     }
 
     public boolean exists(String key) {

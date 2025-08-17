@@ -7,7 +7,6 @@ import life.trally.knowcatfud.dao.UserFileMapper;
 import life.trally.knowcatfud.dao.UserLikesShareMapper;
 import life.trally.knowcatfud.pojo.FileShare;
 import life.trally.knowcatfud.pojo.UserFile;
-import life.trally.knowcatfud.pojo.UserLikesShare;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
 import life.trally.knowcatfud.utils.RedisUtil;
@@ -17,6 +16,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -44,7 +44,7 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public ServiceResult<Result, String> share(Long userId, String path, FileShare fileShare) {
 
-        // 然后检查文件是否存在
+        // 检查文件是否存在
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
         qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, path);
         UserFile userFile = userFileMapper.selectOne(qw);
@@ -54,7 +54,7 @@ public class FileShareServiceImpl implements FileShareService {
             return new ServiceResult<>(Result.FAILED, null);
         }
 
-        // 检查是否已经分享过   // 后续增加redis缓存
+        // 检查是否已经分享过   // 分享是低频操作，所以暂不增加redis缓存
         LambdaQueryWrapper<FileShare> qw1 = new LambdaQueryWrapper<>();
         qw1.eq(FileShare::getFileId, userFile.getId());
         FileShare oldFileShare = fileShareMapper.selectOne(qw1);
@@ -76,18 +76,22 @@ public class FileShareServiceImpl implements FileShareService {
             }
 
             // 过期了，重新分享（使用新uuid）
-            fileShareMapper.deleteById(oldFileShare);
+            fileShareMapper.deleteById(oldFileShare);  // 这条之后放到消息队列
         }
 
         // 未分享过
-        if (fileShare.getExpire() <= 0) {
+
+        // 过期时间禁止负数输入
+        if (fileShare.getExpire() != null && fileShare.getExpire() <= 0) {
             return new ServiceResult<>(Result.FAILED, null);
         }
+
+        // 分享操作是低频操作，暂时不增加redis缓存。且考虑到分享在mysql中存储需要获取自增id，为保证一致性，暂时不用redis
+        // 后续将改用有序UUID作为mysql的主键
         String shareUUID = UUID.randomUUID().toString();
         fileShare.setFileId(userFile.getId());
         fileShare.setUuid(shareUUID);
         fileShare.setId(null);
-        fileShare.setLikes(0);
 
         fileShareMapper.insert(fileShare);
 
@@ -150,39 +154,25 @@ public class FileShareServiceImpl implements FileShareService {
 
         // TODO: redis缓存
 
-
-        // 查分享id（以后改为优先用缓存）
-        LambdaQueryWrapper<FileShare> qw = new LambdaQueryWrapper<>();
-        qw.eq(FileShare::getUuid, shareUUID);
-        FileShare fileShare = fileShareMapper.selectOne(qw);
-
+        String shareId = uuid2Id(shareUUID);
         // 分享不存在
-        if(fileShare == null){
+        if (shareId == null) {
             return Result.FAILED;
         }
 
-        Long shareId = fileShare.getId();
-
-
-
-        // 查点赞情况，避免重复点赞
-        LambdaQueryWrapper<UserLikesShare> qw1 = new LambdaQueryWrapper<>();
-        qw1.eq(UserLikesShare::getShareId, shareId)
-                .eq(UserLikesShare::getUserId, userId);
-        UserLikesShare userLikesShare = userLikesShareMapper.selectOne(qw1);
-        if (userLikesShare != null) {
+        if (checkIfLiked(userId, shareId)) {
             return Result.ALREADY_LIKE;
         }
 
-        // 点赞
-        userLikesShare = new UserLikesShare();
-        userLikesShare.setUserId(userId);
-        userLikesShare.setShareId(shareId);
-        userLikesShareMapper.insert(userLikesShare);
+        // 用户未点赞，则记录点赞并增加点赞数
+        redisUtil.sAdd("share:likes:" + shareId, String.valueOf(userId));
+        redisUtil.zIncrby("share:ranking", shareId, 1);
 
-        // 更新share的likes数量
-        fileShare.setLikes(fileShare.getLikes() + 1);
-        fileShareMapper.updateById(fileShare);
+        // 同步到mysql....使用消息队列
+//        userLikesShare = new UserLikesShare();
+//        userLikesShare.setUserId(userId);
+//        userLikesShare.setShareId(shareId);
+//        userLikesShareMapper.insert(userLikesShare);
 
         return Result.SUCCESS;
     }
@@ -190,28 +180,16 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public Result likeStatus(Long userId, String shareUUID) {
 
-        // 重复代码后续优化
-
-        // 查分享id（以后改为优先用缓存）
-        LambdaQueryWrapper<FileShare> qw = new LambdaQueryWrapper<>();
-        qw.eq(FileShare::getUuid, shareUUID);
-        FileShare fileShare = fileShareMapper.selectOne(qw);
+        String shareId = uuid2Id(shareUUID);
 
         // 分享不存在
-        if(fileShare == null){
+        if (shareId == null) {
             return Result.FAILED;
         }
 
-        Long shareId = fileShare.getId();
+        boolean liked = checkIfLiked(userId, shareId);
 
-
-
-        // 查点赞情况，避免重复点赞
-        LambdaQueryWrapper<UserLikesShare> qw1 = new LambdaQueryWrapper<>();
-        qw1.eq(UserLikesShare::getShareId, shareId)
-                .eq(UserLikesShare::getUserId, userId);
-        UserLikesShare userLikesShare = userLikesShareMapper.selectOne(qw1);
-        if (userLikesShare != null) {
+        if (liked) {
             return Result.ALREADY_LIKE;
         }
 
@@ -221,14 +199,62 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public ServiceResult<Result, Object> getLikeRanking() {
 
-        // TODO: 重写点赞
         // TODO: 分页
 
-        Set<ZSetOperations.TypedTuple<String>> ranking = redisUtil.zRevRangeWithScore("share:uuid_ranking", 0, 20);
-        if (ranking == null) {
-            return new ServiceResult<>(Result.FAILED, null);
-        }
+        Set<ZSetOperations.TypedTuple<String>> ranking = redisUtil.zRevRangeWithScore("share:ranking", 0, 20);
+
         return new ServiceResult<>(Result.SUCCESS, ranking);
+    }
+
+
+    public boolean checkIfLiked(Long userId, String shareId) {
+        Boolean b = redisUtil.sIsMember("share:likes:" + shareId, String.valueOf(userId));
+        return b != null && b;  // 相当于判断b是否为null，为null则返回false，否则返回b
+    }
+
+
+    // 检查分享是否存在
+    // 同时这个时候就做所有的缓存工作
+    public String uuid2Id(String shareUUID) {
+
+        // 缓存uuid和shareId的关联
+        // 先检查是否已经缓存
+        String shareId = redisUtil.get("share:uuid:" + shareUUID);
+        if (shareId != null) {
+            return shareId;
+        }
+
+        // 缓存中不存在，检查分享是否存在于mysql
+        LambdaQueryWrapper<FileShare> qw = new LambdaQueryWrapper<>();
+        qw.eq(FileShare::getUuid, shareUUID);
+        FileShare fileShare = fileShareMapper.selectOne(qw);
+        if (fileShare == null) {
+            // 分享不存在
+            return null;
+        }
+
+        // 分享存在，加入缓存
+        // 1.缓存uuid对应的share id
+
+        Long shareIdLong = fileShare.getId();
+        shareId = String.valueOf(shareIdLong);
+        redisUtil.set("share:uuid_id:" + shareUUID, shareId);
+
+        // 2.缓存分享信息
+
+        // 3.缓存点赞列表
+        List<String> likeUsers = userLikesShareMapper.getLikeUsers(shareIdLong);
+        redisUtil.sAdd("share:likes:" + shareId, likeUsers);
+
+        // 缓存点赞数...后续改为只对公开且参与排行的分享使用有序集合
+        Long likesCount = redisUtil.sSize("share:likes:" + shareId);
+        redisUtil.zAdd("share:ranking", shareId, likesCount);
+
+        // 为以上key设置过期时间3天
+        redisUtil.expire("share:uuid_id:" + shareUUID, 3, TimeUnit.DAYS);
+        redisUtil.expire("share:likes:" + shareId, 3, TimeUnit.DAYS);
+
+        return shareId;
     }
 
 
