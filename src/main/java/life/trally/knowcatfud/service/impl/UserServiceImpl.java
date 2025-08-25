@@ -2,11 +2,11 @@ package life.trally.knowcatfud.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import life.trally.knowcatfud.dao.UserFileMapper;
-import life.trally.knowcatfud.dao.UserMapper;
+import life.trally.knowcatfud.mapper.UserFileMapper;
+import life.trally.knowcatfud.mapper.UserMapper;
 import life.trally.knowcatfud.jwt.LoginUser;
-import life.trally.knowcatfud.pojo.User;
-import life.trally.knowcatfud.pojo.UserFile;
+import life.trally.knowcatfud.entity.User;
+import life.trally.knowcatfud.entity.UserFile;
 import life.trally.knowcatfud.service.interfaces.UserService;
 import life.trally.knowcatfud.utils.JsonUtils;
 import life.trally.knowcatfud.utils.JwtUtils;

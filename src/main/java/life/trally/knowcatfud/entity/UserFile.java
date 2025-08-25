@@ -1,4 +1,4 @@
-package life.trally.knowcatfud.pojo;
+package life.trally.knowcatfud.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -18,7 +18,7 @@ public class UserFile {
     public final static int TYPE_DIR = 0;
     public final static int TYPE_FILE = 1;
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     private Long userId;      // username仅用作登录，数据库存储内容皆用user_id

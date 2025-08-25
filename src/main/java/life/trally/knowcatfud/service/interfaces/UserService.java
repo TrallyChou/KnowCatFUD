@@ -1,7 +1,7 @@
 package life.trally.knowcatfud.service.interfaces;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import life.trally.knowcatfud.pojo.User;
+import life.trally.knowcatfud.entity.User;
 
 public interface UserService extends IService<User> {
 

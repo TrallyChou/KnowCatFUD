@@ -2,23 +2,36 @@ package life.trally.knowcatfud.service.impl;
 
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import life.trally.knowcatfud.dao.FileShareMapper;
-import life.trally.knowcatfud.dao.UserFileMapper;
-import life.trally.knowcatfud.dao.UserLikesShareMapper;
-import life.trally.knowcatfud.pojo.FileShare;
-import life.trally.knowcatfud.pojo.UserFile;
+import life.trally.knowcatfud.entity.FileShare;
+import life.trally.knowcatfud.entity.FileShareIntroduction;
+import life.trally.knowcatfud.entity.UserFile;
+import life.trally.knowcatfud.mapper.FileShareIntroductionMapper;
+import life.trally.knowcatfud.mapper.FileShareMapper;
+import life.trally.knowcatfud.mapper.UserFileMapper;
+import life.trally.knowcatfud.mapper.UserLikesShareMapper;
+import life.trally.knowcatfud.mapping.FileShareMapping;
+import life.trally.knowcatfud.rabbitmq.messages.LikeMessage;
+import life.trally.knowcatfud.request.FileShareRequest;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
 import life.trally.knowcatfud.utils.JsonUtils;
 import life.trally.knowcatfud.utils.RedisUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.query.Criteria;
+import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -34,17 +47,25 @@ public class FileShareServiceImpl implements FileShareService {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtils redisUtil, UserFileMapper userFileMapper, UserLikesShareMapper userLikesShareMapper, RabbitTemplate rabbitTemplate) {
+    private final ElasticsearchOperations elasticsearchOperations;
+
+    private final FileShareMapping fileShareMapping;
+    private final FileShareIntroductionMapper fileShareIntroductionMapper;
+
+    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtils redisUtil, UserFileMapper userFileMapper, UserLikesShareMapper userLikesShareMapper, RabbitTemplate rabbitTemplate, ElasticsearchOperations elasticsearchOperations, FileShareMapping fileShareMapping, FileShareIntroductionMapper fileShareIntroductionMapper) {
         this.fileShareMapper = fileShareMapper;
         this.redisUtil = redisUtil;
         this.userFileMapper = userFileMapper;
         this.userLikesShareMapper = userLikesShareMapper;
         this.rabbitTemplate = rabbitTemplate;
+        this.elasticsearchOperations = elasticsearchOperations;
+        this.fileShareMapping = fileShareMapping;
+        this.fileShareIntroductionMapper = fileShareIntroductionMapper;
     }
 
 
     @Override
-    public ServiceResult<Result, String> share(Long userId, String path, FileShare fileShare) {
+    public ServiceResult<Result, String> share(Long userId, String path, FileShareRequest fileShareRequest) {
 
         // 检查文件是否存在
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
@@ -56,7 +77,7 @@ public class FileShareServiceImpl implements FileShareService {
             return new ServiceResult<>(Result.FAILED, null);
         }
 
-        // 检查是否已经分享过   // 分享是低频操作，所以暂不增加redis缓存
+        // 检查是否已经分享过
         LambdaQueryWrapper<FileShare> qw1 = new LambdaQueryWrapper<>();
         qw1.eq(FileShare::getFileId, userFile.getId());
         FileShare oldFileShare = fileShareMapper.selectOne(qw1);
@@ -84,18 +105,36 @@ public class FileShareServiceImpl implements FileShareService {
         // 未分享过
 
         // 过期时间禁止负数输入
-        if (fileShare.getExpire() != null && fileShare.getExpire() <= 0) {
+        if (fileShareRequest.getExpire() != null && fileShareRequest.getExpire() <= 0) {
             return new ServiceResult<>(Result.FAILED, null);
         }
 
-        // 分享操作是低频操作，暂时不增加redis缓存。且考虑到分享在mysql中存储需要获取自增id，为保证一致性，暂时不用redis
+
+        FileShare fileShare = fileShareMapping.toFileShare(fileShareRequest);
+        // 分享操作是低频操作，暂时不增加redis缓存。且考虑到分享在mysql中存储需要获取id，为在架构简单的同时保持一致性，暂时不用redis
         // 后续将改用有序UUID作为mysql的主键
         String shareUUID = UUID.randomUUID().toString();
         fileShare.setFileId(userFile.getId());
         fileShare.setUuid(shareUUID);
         fileShare.setId(null);
+        if (fileShare.getType() > 0) {      // 非私人分享   此逻辑后续优化
+            fileShare.setType(null);
+        }
 
+        // 入库
         fileShareMapper.insert(fileShare);
+
+        // 将分享介绍存入数据库
+        FileShareIntroduction fileShareIntroduction = fileShareMapping.toShareIntroduction(fileShare, fileShareRequest);
+        fileShareIntroductionMapper.insert(fileShareIntroduction);  // TODO: 使用事务
+
+        // 向ES添加分享介绍，便于搜索
+        // 一定要使用消息队列，否则延迟极高
+        rabbitTemplate.convertAndSend(
+                "knowcatfud.share",
+                "share",
+                JsonUtils.serialize(fileShareIntroduction)
+        );
 
         return new ServiceResult<>(Result.SUCCESS, shareUUID);
     }
@@ -170,20 +209,8 @@ public class FileShareServiceImpl implements FileShareService {
         redisUtil.zIncrby("share:ranking", shareId, 1);
 
         // 同步到mysql....使用消息队列
-
-        Map<String, Object> event = new HashMap<>();
-        event.put("userId", userId);
-        event.put("shareId", Long.valueOf(shareId));
-        event.put("uuid", UUID.randomUUID().toString());
-
-
-        String message = JsonUtils.serialize(event);
-
-        rabbitTemplate.convertAndSend(
-                "knowcatfud.likes",
-                "like",
-                message
-        );
+        String message = JsonUtils.serialize(new LikeMessage(userId, Long.valueOf(shareId)));
+        rabbitTemplate.convertAndSend("knowcatfud.likes", "like", message);
 
         return Result.SUCCESS;
     }
@@ -279,13 +306,15 @@ public class FileShareServiceImpl implements FileShareService {
         redisUtil.hSet(infoKey, "file_id", String.valueOf(fileShare.getFileId()));
         redisUtil.hSet(infoKey, "type", String.valueOf(fileShare.getType()));
         redisUtil.hSet(infoKey, "password", fileShare.getPassword());
-        redisUtil.hSet(infoKey, "introduction", fileShare.getIntroduction());
         redisUtil.hSet(infoKey, "created_at", String.valueOf(fileShare.getCreatedAt()));
         redisUtil.hSet(infoKey, "expire", String.valueOf(fileShare.getExpire()));
 
-        // 3.缓存点赞列表 和 点赞数
+        // 3.缓存分享介绍
+        //        redisUtil.hSet(infoKey, "introduction", fileShare.getIntroduction());
+
+        // 4.缓存点赞列表 和 点赞数
         Long likesCount = 0L;
-        List<String> likeUsers = userLikesShareMapper.getLikeUsers(shareIdLong);
+        List<String> likeUsers = userLikesShareMapper.getLikeUsersString(shareIdLong);
         if (!likeUsers.isEmpty()) {
             redisUtil.sAdd("share:likes:" + shareId, likeUsers);
             likesCount = redisUtil.sSize("share:likes:" + shareId);
@@ -295,18 +324,62 @@ public class FileShareServiceImpl implements FileShareService {
         if (fileShare.getType() == FileShare.PUBLIC_RANKING) {
             redisUtil.zAdd("share:ranking", shareId, likesCount);
         } else {
-            // 非公开分享 将获赞数量缓存于分享信息
+            // 非公开分享 将获赞数量缓存于分享信息，不参与排行
             redisUtil.hSet(infoKey, "likes", String.valueOf(likesCount));
         }
 
-        // 为以上key设置过期时间3天
+        // 为以上key设置过期时间6小时
         redisUtil.expire("share:uuid_id:" + shareUUID, 6, TimeUnit.HOURS);
         redisUtil.expire("share:likes:" + shareId, 6, TimeUnit.HOURS);
         redisUtil.expire("share:info:" + shareId, 6, TimeUnit.HOURS);
-        // 点赞数由于使用有序集合存储，所以需要额外处理过期，但数据量仅为帖子数量，足够小，所以暂时不做过期处理...
-        // 而且实际上，让点赞数较低 的
+        // 参与排行榜的需要额外编写缓存过期处理代码，但是，参与排行榜的在缓存过期后仍然要存在于排行榜上，所以反而无需为其设计缓存过期时间
+        // TODO：从排行榜移除分享过期/手动删除的分享
 
         return shareId;
+    }
+
+    @Override
+    public ServiceResult<Result, List<FileShareIntroduction>> search(String keywords) {
+
+        // TODO: 分页
+        Query query = new CriteriaQuery(
+                new Criteria("introduction").matches(keywords)
+                        .or("title").matches(keywords)
+        );
+        List<FileShareIntroduction> r = elasticsearchOperations
+                .search(query, FileShareIntroduction.class)
+                .get()
+                .limit(20)
+                .map(SearchHit::getContent)
+                .toList();
+        return new ServiceResult<>(Result.SUCCESS, r);
+    }
+
+    @Override
+    public ServiceResult<Result, Object> getShares(Long userId) {
+        List<FileShare> fileShares = fileShareMapper.getShares(userId);
+        return new ServiceResult<>(Result.SUCCESS, fileShares);
+    }
+
+    @Override
+    public Result delete(Long userId, String shareUuid) {
+        String shareIdString = uuid2Id(shareUuid);
+        if (shareIdString == null) {
+            return Result.SHARE_NOT_FOUND;
+        }
+        Long shareId = Long.valueOf(shareIdString);
+        Long realUserId = fileShareMapper.getUserIdByShareId(shareId);
+        if (userId.equals(realUserId)) {
+            fileShareMapper.deleteById(shareId);
+            fileShareIntroductionMapper.deleteById(shareId);
+
+            // TODO: 删除点赞记录
+            // TODO: 使用消息队列从ES中删除文件信息
+
+            return Result.SUCCESS;
+        }
+
+        return Result.INVALID_ACCESS;
     }
 
 

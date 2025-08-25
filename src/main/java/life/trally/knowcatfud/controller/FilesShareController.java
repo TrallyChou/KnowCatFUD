@@ -1,7 +1,7 @@
 package life.trally.knowcatfud.controller;
 
 import life.trally.knowcatfud.jwt.LoginUser;
-import life.trally.knowcatfud.pojo.FileShare;
+import life.trally.knowcatfud.request.FileShareRequest;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
 import org.springframework.lang.NonNull;
@@ -25,9 +25,9 @@ public class FilesShareController {
     public R share(
             @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String path,
-            @RequestBody @NonNull FileShare fileShare) {
+            @RequestBody @NonNull FileShareRequest fileShareRequest) {
 
-        ServiceResult<FileShareService.Result, String> r = fileShareService.share(loginUser.getId(), path, fileShare);
+        ServiceResult<FileShareService.Result, String> r = fileShareService.share(loginUser.getId(), path, fileShareRequest);
         return switch (r.getResult()) {
             case SUCCESS -> R.ok().message("分享成功").data("uuid", r.getData());
             case SHARE_NOT_FOUND -> R.error().message("文件未找到");
@@ -96,7 +96,8 @@ public class FilesShareController {
     }
 
     // 获取点赞排行榜
-    @GetMapping("/share")
+    // PS:SpringBoot优先匹配具体路径
+    @GetMapping("/share/ranking")
     @PreAuthorize("hasAnyAuthority('files_share:get_like_ranking')")
     public R getLikeRanking() {
         ServiceResult<FileShareService.Result, Object> r = fileShareService.getLikeRanking();
@@ -105,6 +106,43 @@ public class FilesShareController {
             default -> R.error().message("获取失败");
         };
     }
+
+    // 搜索
+    @GetMapping("/share/search")
+//    @PreAuthorize("")
+    public R search(
+            @RequestParam String keywords
+    ) {
+
+        var r = fileShareService.search(keywords);
+        return switch (r.getResult()) {
+            case SUCCESS -> R.ok().data("result", r.getData());
+            default -> R.error().message("搜索失败");
+        };
+    }
+
+    @GetMapping("/share")
+    public R getShares(@AuthenticationPrincipal LoginUser loginUser) {
+        var r  = fileShareService.getShares(loginUser.getId());
+        return switch (r.getResult()) {
+            case SUCCESS -> R.ok().data("shares", r.getData());
+            default -> R.error().message("失败");
+        };
+    }
+
+    @DeleteMapping("/share/{shareUUID}")
+    public R delete(
+            @AuthenticationPrincipal LoginUser loginUser,
+            @PathVariable String shareUUID) {
+        return switch (fileShareService.delete(loginUser.getId(), shareUUID)) {
+            case SUCCESS -> R.ok().message("删除成功");
+            case SHARE_NOT_FOUND -> R.ok().message("分享不存在");
+            default -> R.error().message("删除失败");
+        };
+    }
+
+
+
 
 
 }

@@ -1,4 +1,4 @@
-package life.trally.knowcatfud.pojo;
+package life.trally.knowcatfud.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -16,7 +16,7 @@ import java.io.Serializable;
 @TableName("users")
 public class User implements Serializable {
 
-    @TableId(type = IdType.AUTO) // 主键，自增
+    @TableId(type = IdType.AUTO) // 主键，自增 希望用户uid是这样的
     private Long id;
     private String username;
 

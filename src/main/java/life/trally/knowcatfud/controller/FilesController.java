@@ -1,7 +1,7 @@
 package life.trally.knowcatfud.controller;
 
 import life.trally.knowcatfud.jwt.LoginUser;
-import life.trally.knowcatfud.pojo.UserFile;
+import life.trally.knowcatfud.entity.UserFile;
 import life.trally.knowcatfud.service.interfaces.FileService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;

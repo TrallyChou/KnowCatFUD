@@ -1,10 +1,10 @@
 package life.trally.knowcatfud.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import life.trally.knowcatfud.dao.MenuMapper;
-import life.trally.knowcatfud.dao.UserMapper;
+import life.trally.knowcatfud.mapper.MenuMapper;
+import life.trally.knowcatfud.mapper.UserMapper;
 import life.trally.knowcatfud.jwt.LoginUser;
-import life.trally.knowcatfud.pojo.User;
+import life.trally.knowcatfud.entity.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

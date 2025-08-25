@@ -1,9 +1,18 @@
 package life.trally.knowcatfud.service.interfaces;
 
-import life.trally.knowcatfud.pojo.FileShare;
+import life.trally.knowcatfud.entity.FileShareIntroduction;
+import life.trally.knowcatfud.request.FileShareRequest;
 import life.trally.knowcatfud.service.ServiceResult;
 
+import java.util.List;
+
 public interface FileShareService {
+
+    ServiceResult<Result, List<FileShareIntroduction>> search(String keywords);
+
+    ServiceResult<Result, Object> getShares(Long UserId);
+
+    Result delete(Long userId, String shareUuid);
 
     enum Result {
         SUCCESS,
@@ -15,7 +24,7 @@ public interface FileShareService {
         NOT_LIKE
     }
 
-    ServiceResult<Result, String> share(Long userId, String path, FileShare fileShare);
+    ServiceResult<Result, String> share(Long userId, String path, FileShareRequest fileShare);
 
     ServiceResult<Result, String> download(String shareUUID, String password);
 

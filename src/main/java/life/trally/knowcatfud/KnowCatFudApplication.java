@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 
 @SpringBootApplication
-@MapperScan("life.trally.knowcatfud.dao")
+@MapperScan("life.trally.knowcatfud.mapper")
 public class KnowCatFudApplication {
 
 	public static void main(String[] args) {

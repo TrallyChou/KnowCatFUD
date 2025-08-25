@@ -1,7 +1,7 @@
 package life.trally.knowcatfud;
 
-import life.trally.knowcatfud.pojo.User;
-import life.trally.knowcatfud.dao.UserMapper;
+import life.trally.knowcatfud.entity.User;
+import life.trally.knowcatfud.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

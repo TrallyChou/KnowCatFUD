@@ -2,8 +2,7 @@ package life.trally.knowcatfud.jwt;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import life.trally.knowcatfud.pojo.User;
-import lombok.AllArgsConstructor;
+import life.trally.knowcatfud.entity.User;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;

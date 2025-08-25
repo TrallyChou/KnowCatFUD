@@ -1,8 +1,7 @@
 package life.trally.knowcatfud.controller;
 
-import life.trally.knowcatfud.pojo.User;
+import life.trally.knowcatfud.entity.User;
 import life.trally.knowcatfud.service.interfaces.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

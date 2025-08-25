@@ -104,12 +104,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-<!--        &lt;!&ndash; https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>com.alibaba.fastjson2</groupId>-->
-<!--            <artifactId>fastjson2</artifactId>-->
-<!--            <version>2.0.57</version>-->
-<!--        </dependency>-->
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>com.alibaba.fastjson2</groupId>-->
+        <!--            <artifactId>fastjson2</artifactId>-->
+        <!--            <version>2.0.57</version>-->
+        <!--        </dependency>-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
@@ -129,6 +129,17 @@
             <artifactId>spring-rabbit-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.mapstruct/mapstruct -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>1.6.3</version>
+        </dependency>
 
     </dependencies>
 
@@ -143,9 +154,23 @@
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
                         </path>
+
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>1.6.3</version>
+                        </path>
+
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>0.2.0</version>
+                        </path>
+
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -158,6 +183,7 @@
                     </excludes>
                 </configuration>
             </plugin>
+
         </plugins>
     </build>
 

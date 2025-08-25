@@ -1,5 +1,4 @@
-package life.trally.knowcatfud.pojo;
-
+package life.trally.knowcatfud.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -11,13 +10,12 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("sys_menu")
-public class Menu {
+@TableName("user_likes_share")
+public class UserLikesShare {
 
-    @TableId(type = IdType.AUTO)
-    private long id;
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long id;
 
-    private String perm;
-    private boolean del_flag;
-    private String remark;
+    private Long userId;
+    private Long shareId;
 }

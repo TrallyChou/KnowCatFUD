@@ -1,7 +1,7 @@
-package life.trally.knowcatfud.dao;
+package life.trally.knowcatfud.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import life.trally.knowcatfud.pojo.Menu;
+import life.trally.knowcatfud.entity.Menu;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;

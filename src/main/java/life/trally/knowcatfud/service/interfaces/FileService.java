@@ -1,6 +1,6 @@
 package life.trally.knowcatfud.service.interfaces;
 
-import life.trally.knowcatfud.pojo.UserFile;
+import life.trally.knowcatfud.entity.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;

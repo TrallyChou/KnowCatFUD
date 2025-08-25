@@ -1,8 +1,8 @@
 package life.trally.knowcatfud.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import life.trally.knowcatfud.dao.UserFileMapper;
-import life.trally.knowcatfud.pojo.UserFile;
+import life.trally.knowcatfud.mapper.UserFileMapper;
+import life.trally.knowcatfud.entity.UserFile;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileService;
@@ -17,7 +17,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
@@ -40,11 +39,11 @@ public class FileServiceImpl implements FileService {
     /**
      * 文件上传和创建目录
      *
-     * @param userId
-     * @param path
-     * @param multipartFile
-     * @param userFile
-     * @return
+     * @param userId        用户id
+     * @param path          用户文件目录
+     * @param multipartFile 文件数据
+     * @param userFile      用户文件信息
+     * @return 处理结果状态枚举
      */
     @Override
     public Result uploadOrMkdir(Long userId, String path, MultipartFile multipartFile, UserFile userFile) {
@@ -68,7 +67,7 @@ public class FileServiceImpl implements FileService {
         }
 
         // 要求父目录存在
-        String parent = Paths.get(userFile.getPath()).getParent()
+        String parent = Path.of(userFile.getPath()).getParent()
                 .toString().replace("\\", "/");    // 统一win和linux下的路径样式
 
         // 如果父目录不存在，则返回
@@ -121,18 +120,16 @@ public class FileServiceImpl implements FileService {
         }
 
         // 保存时文件名为 哈希+文件大小
-        Path cachePath = Paths.get("files/cache", userFile.getHash() + userFile.getSize());
-        Path storagePath = Paths.get("files/", userFile.getHash() + userFile.getSize());
+        Path cachePath = Path.of("files/cache", userFile.getHash() + userFile.getSize());
+        Path storagePath = Path.of("files/", userFile.getHash() + userFile.getSize());
         if (Files.exists(storagePath)) {
-            // TODO:
-            // 抽检文件，防止已存储文件泄露
+            // TODO: 抽检文件，防止已存储文件泄露
             userFileMapper.insert(userFile);  // 已经存在则只需要记录
             return Result.FILE_SUCCESS;
         }
 
         // 下面保存文件
         try {
-            Files.createDirectories(cachePath.getParent());  //防止目录不存在
             // 服务器获取文件，存入缓存目录
             Files.copy(multipartFile.getInputStream(), cachePath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -159,14 +156,15 @@ public class FileServiceImpl implements FileService {
     /**
      * 文件列表获取、文件下载token获取
      *
-     * @param userId
-     * @param path
-     * @return
+     * @param userId 用户id
+     * @param path   用户文件/目录路径
+     * @return 状态枚举和文件列表数据或文件下载token
      */
     @Override
     public ServiceResult<Result, Object> listOrDownload(Long userId, String path) {
 
-        // TODO: 这是最常用的功能，后续应该对文件列表使用缓存
+        // 一个账户同时应只由一个用户操作，所以这里应当让前端进行缓存来提高用户体验，后端不进行缓存。
+        // TODO: 限制获取文件下载token的频率
 
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
         qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, path);
@@ -204,7 +202,7 @@ public class FileServiceImpl implements FileService {
     }
 
     /**
-     * 通过文件token和range头来分段下载文件
+     * 通过文件token和range头来分片下载文件
      *
      * @param token 文件token
      * @param range 请求range头
@@ -251,6 +249,5 @@ public class FileServiceImpl implements FileService {
 
 
     }
-
 
 }
