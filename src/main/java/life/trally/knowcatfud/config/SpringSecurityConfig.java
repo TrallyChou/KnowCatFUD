@@ -42,7 +42,12 @@ public class SpringSecurityConfig {
                 // 放行请求
                 auth -> auth
                         .requestMatchers("/login", "/reg").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/share/*", "/download/*","/share/*/likes").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/share/*",
+                                "/share/*/download",
+                                "/download/{token}",
+                                "/share/*/likes")
+                        .permitAll()
                         .anyRequest().authenticated()
         );
 

@@ -2,17 +2,13 @@ package life.trally.knowcatfud.service.interfaces;
 
 import life.trally.knowcatfud.entity.FileShareIntroduction;
 import life.trally.knowcatfud.request.FileShareRequest;
+import life.trally.knowcatfud.response.FileShareResponseForCreator;
+import life.trally.knowcatfud.response.FileShareResponseForOtherUsers;
 import life.trally.knowcatfud.service.ServiceResult;
 
 import java.util.List;
 
 public interface FileShareService {
-
-    ServiceResult<Result, List<FileShareIntroduction>> search(String keywords);
-
-    ServiceResult<Result, Object> getShares(Long UserId);
-
-    Result delete(Long userId, String shareUuid);
 
     enum Result {
         SUCCESS,
@@ -26,6 +22,8 @@ public interface FileShareService {
 
     ServiceResult<Result, String> share(Long userId, String path, FileShareRequest fileShare);
 
+    ServiceResult<Result, FileShareResponseForOtherUsers> getShare(String shareUUID, String password);
+
     ServiceResult<Result, String> download(String shareUUID, String password);
 
     Result like(Long userId, String shareUUID);
@@ -35,4 +33,10 @@ public interface FileShareService {
     ServiceResult<Result, String> likesCount(String shareUUID);
 
     ServiceResult<Result, Object> getLikeRanking();
+
+    ServiceResult<Result, List<FileShareIntroduction>> search(String keywords);
+
+    ServiceResult<Result, List<FileShareResponseForCreator>> getShares(Long UserId);
+
+    Result delete(Long userId, String shareUuid);
 }

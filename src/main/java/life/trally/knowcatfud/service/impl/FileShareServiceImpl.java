@@ -2,6 +2,7 @@ package life.trally.knowcatfud.service.impl;
 
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import life.trally.knowcatfud.entity.FileShare;
 import life.trally.knowcatfud.entity.FileShareIntroduction;
 import life.trally.knowcatfud.entity.UserFile;
@@ -12,6 +13,8 @@ import life.trally.knowcatfud.mapper.UserLikesShareMapper;
 import life.trally.knowcatfud.mapping.FileShareMapping;
 import life.trally.knowcatfud.rabbitmq.messages.LikeMessage;
 import life.trally.knowcatfud.request.FileShareRequest;
+import life.trally.knowcatfud.response.FileShareResponseForCreator;
+import life.trally.knowcatfud.response.FileShareResponseForOtherUsers;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
 import life.trally.knowcatfud.utils.JsonUtils;
@@ -24,6 +27,7 @@ import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
@@ -38,21 +42,16 @@ import java.util.concurrent.TimeUnit;
 public class FileShareServiceImpl implements FileShareService {
 
     private final FileShareMapper fileShareMapper;
-
     private final RedisUtils redisUtil;
-
     private final UserFileMapper userFileMapper;
-
     private final UserLikesShareMapper userLikesShareMapper;
-
     private final RabbitTemplate rabbitTemplate;
-
     private final ElasticsearchOperations elasticsearchOperations;
-
     private final FileShareMapping fileShareMapping;
     private final FileShareIntroductionMapper fileShareIntroductionMapper;
+    private final TransactionTemplate transactionTemplate;
 
-    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtils redisUtil, UserFileMapper userFileMapper, UserLikesShareMapper userLikesShareMapper, RabbitTemplate rabbitTemplate, ElasticsearchOperations elasticsearchOperations, FileShareMapping fileShareMapping, FileShareIntroductionMapper fileShareIntroductionMapper) {
+    public FileShareServiceImpl(FileShareMapper fileShareMapper, RedisUtils redisUtil, UserFileMapper userFileMapper, UserLikesShareMapper userLikesShareMapper, RabbitTemplate rabbitTemplate, ElasticsearchOperations elasticsearchOperations, FileShareMapping fileShareMapping, FileShareIntroductionMapper fileShareIntroductionMapper, TransactionTemplate transactionTemplate) {
         this.fileShareMapper = fileShareMapper;
         this.redisUtil = redisUtil;
         this.userFileMapper = userFileMapper;
@@ -61,6 +60,7 @@ public class FileShareServiceImpl implements FileShareService {
         this.elasticsearchOperations = elasticsearchOperations;
         this.fileShareMapping = fileShareMapping;
         this.fileShareIntroductionMapper = fileShareIntroductionMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
 
@@ -99,7 +99,7 @@ public class FileShareServiceImpl implements FileShareService {
             }
 
             // 过期了，重新分享（使用新uuid）
-            fileShareMapper.deleteById(oldFileShare);  // 这条之后放到消息队列
+            fileShareMapper.deleteById(oldFileShare);
         }
 
         // 未分享过
@@ -121,29 +121,65 @@ public class FileShareServiceImpl implements FileShareService {
             fileShare.setType(null);
         }
 
-        // 入库
-        fileShareMapper.insert(fileShare);
-
-        // 将分享介绍存入数据库
+        Long id = IdWorker.getId();
+        fileShare.setId(id);
+        // 分享介绍
         FileShareIntroduction fileShareIntroduction = fileShareMapping.toShareIntroduction(fileShare, fileShareRequest);
-        fileShareIntroductionMapper.insert(fileShareIntroduction);  // TODO: 使用事务
 
-        // 向ES添加分享介绍，便于搜索
-        // 一定要使用消息队列，否则延迟极高
-        rabbitTemplate.convertAndSend(
-                "knowcatfud.share",
-                "share",
-                JsonUtils.serialize(fileShareIntroduction)
+        Boolean executeResult = transactionTemplate.execute(
+                status -> {
+                    try {
+
+
+                        // 分享入库
+                        fileShareMapper.insert(fileShare);
+                        // 分享介绍入库
+                        fileShareIntroductionMapper.insert(fileShareIntroduction);
+                        return Boolean.TRUE;
+                    } catch (Exception e) {
+                        status.setRollbackOnly();
+                    }
+                    return Boolean.FALSE;
+                }
+
         );
 
-        return new ServiceResult<>(Result.SUCCESS, shareUUID);
+        if (Boolean.TRUE.equals(executeResult)) {
+            // 向ES添加分享介绍，便于搜索
+            // 一定要使用消息队列，否则延迟极高
+            rabbitTemplate.convertAndSend(
+                    "knowcatfud.share",
+                    "share",
+                    JsonUtils.serialize(fileShareIntroduction)
+            );
+            return new ServiceResult<>(Result.SUCCESS, shareUUID);
+        } else {
+            return new ServiceResult<>(Result.FAILED, null);
+        }
+
+    }
+
+    @Override
+    public ServiceResult<Result, FileShareResponseForOtherUsers> getShare(String shareUUID, String password) {
+        // TODO: Redis缓存
+        // TODO: 密码验证
+        Long id = uuid2Id(shareUUID);
+        if (id == null) {
+            return new ServiceResult<>(Result.SHARE_NOT_FOUND, null);
+        }
+        // 查询
+        FileShareResponseForOtherUsers r = fileShareMapper.getShare(id);
+        if (r == null) {
+            return new ServiceResult<>(Result.FAILED, null);
+        }
+        return new ServiceResult<>(Result.SUCCESS, r);
     }
 
 
     @Override
     public ServiceResult<Result, String> download(String shareUUID, String password) {
 
-        // TODO:redis缓存
+        // TODO:redis缓存（UUID-FILE）
         LambdaQueryWrapper<FileShare> qw = new LambdaQueryWrapper<>();
         qw.eq(FileShare::getUuid, shareUUID);
         FileShare fileShare = fileShareMapper.selectOne(qw);
@@ -193,7 +229,7 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public Result like(Long userId, String shareUUID) {
 
-        String shareId = uuid2Id(shareUUID);
+        Long shareId = uuid2Id(shareUUID);
         // 分享不存在
         if (shareId == null) {
             return Result.FAILED;
@@ -206,10 +242,10 @@ public class FileShareServiceImpl implements FileShareService {
 
         // 用户未点赞，则记录点赞并增加点赞数
         redisUtil.sAdd("share:likes:" + shareId, String.valueOf(userId));
-        redisUtil.zIncrby("share:ranking", shareId, 1);
+        redisUtil.zIncrby("share:ranking", String.valueOf(shareId), 1);
 
         // 同步到mysql....使用消息队列
-        String message = JsonUtils.serialize(new LikeMessage(userId, Long.valueOf(shareId)));
+        String message = JsonUtils.serialize(new LikeMessage(userId, shareId));
         rabbitTemplate.convertAndSend("knowcatfud.likes", "like", message);
 
         return Result.SUCCESS;
@@ -218,7 +254,7 @@ public class FileShareServiceImpl implements FileShareService {
     @Override
     public Result likeStatus(Long userId, String shareUUID) {
 
-        String shareId = uuid2Id(shareUUID);
+        Long shareId = uuid2Id(shareUUID);
 
         // 分享不存在
         if (shareId == null) {
@@ -236,7 +272,7 @@ public class FileShareServiceImpl implements FileShareService {
 
     @Override
     public ServiceResult<Result, String> likesCount(String shareUUID) {
-        String shareId = uuid2Id(shareUUID);
+        Long shareId = uuid2Id(shareUUID);
         if (shareId == null) {
             return new ServiceResult<>(Result.FAILED, null);
         }
@@ -246,7 +282,7 @@ public class FileShareServiceImpl implements FileShareService {
 
         int type = Integer.parseInt(redisUtil.hGet(infoKey, "type"));
         if (type == FileShare.PUBLIC_RANKING) {
-            likesCountString = String.valueOf(redisUtil.zScore("share:ranking", shareId));
+            likesCountString = String.valueOf(redisUtil.zScore("share:ranking", String.valueOf(shareId)));
         } else {
             likesCountString = redisUtil.hGet(infoKey, "likes");
         }
@@ -265,7 +301,7 @@ public class FileShareServiceImpl implements FileShareService {
     }
 
 
-    public boolean checkIfLiked(Long userId, String shareId) {
+    public boolean checkIfLiked(Long userId, Long shareId) {
         Boolean b = redisUtil.sIsMember("share:likes:" + shareId, String.valueOf(userId));
         return b != null && b;  // 相当于判断b是否为null，为null则返回false，否则返回b
     }
@@ -273,13 +309,13 @@ public class FileShareServiceImpl implements FileShareService {
 
     // 检查分享是否存在
     // 同时这个时候就做所有的缓存工作
-    public String uuid2Id(String shareUUID) {
+    public Long uuid2Id(String shareUUID) {
 
         // 缓存uuid和shareId的关联
         // 先检查是否已经缓存
         String shareId = redisUtil.get("share:uuid:" + shareUUID);
         if (shareId != null) {
-            return shareId;
+            return Long.valueOf(shareId);
         }
 
         // 缓存中不存在，检查分享是否存在于mysql
@@ -335,7 +371,7 @@ public class FileShareServiceImpl implements FileShareService {
         // 参与排行榜的需要额外编写缓存过期处理代码，但是，参与排行榜的在缓存过期后仍然要存在于排行榜上，所以反而无需为其设计缓存过期时间
         // TODO：从排行榜移除分享过期/手动删除的分享
 
-        return shareId;
+        return Long.valueOf(shareId);
     }
 
     @Override
@@ -356,23 +392,22 @@ public class FileShareServiceImpl implements FileShareService {
     }
 
     @Override
-    public ServiceResult<Result, Object> getShares(Long userId) {
-        List<FileShare> fileShares = fileShareMapper.getShares(userId);
+    public ServiceResult<Result, List<FileShareResponseForCreator>> getShares(Long userId) {
+        List<FileShareResponseForCreator> fileShares = fileShareMapper.getShares(userId);
         return new ServiceResult<>(Result.SUCCESS, fileShares);
     }
 
     @Override
     public Result delete(Long userId, String shareUuid) {
-        String shareIdString = uuid2Id(shareUuid);
-        if (shareIdString == null) {
+        Long shareId = uuid2Id(shareUuid);
+        if (shareId == null) {
             return Result.SHARE_NOT_FOUND;
         }
-        Long shareId = Long.valueOf(shareIdString);
         Long realUserId = fileShareMapper.getUserIdByShareId(shareId);
         if (userId.equals(realUserId)) {
             fileShareMapper.deleteById(shareId);
             fileShareIntroductionMapper.deleteById(shareId);
-
+            // TODO: 清理缓存
             // TODO: 删除点赞记录
             // TODO: 使用消息队列从ES中删除文件信息
 

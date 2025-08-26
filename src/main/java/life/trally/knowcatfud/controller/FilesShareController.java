@@ -37,12 +37,25 @@ public class FilesShareController {
         };
     }
 
-    // 删除分享
-    // TODO:delete
+    // 获取
+    @GetMapping(value = "/share/{shareUUID}")
+    //@PreAuthorize("hasAnyAuthority('files_share:download')")
+    public R getShare(
+            @PathVariable String shareUUID,
+            @RequestParam @Nullable String password) {
+
+        var r = fileShareService.getShare(shareUUID, password);
+        return switch (r.getResult()) {
+            case SUCCESS -> R.ok().data("share", r.getData());
+            case SHARE_NOT_FOUND -> R.error().message("分享不存在");
+            default -> R.error().message("未知错误");
+        };
+
+    }
 
 
     // 下载
-    @GetMapping(value = "/share/{shareUUID}")
+    @GetMapping(value = "/share/{shareUUID}/download")
     //@PreAuthorize("hasAnyAuthority('files_share:download')")
     public R download(
             @PathVariable String shareUUID,
