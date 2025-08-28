@@ -232,6 +232,8 @@ public class FileServiceImpl implements FileService {
     @Override
     public Result delete(Long userId, String path) {
 
+        // TODO: 删除关联的分享
+
         if ("/".equals(path)) {
             return Result.DELETE_FAILED;
         }

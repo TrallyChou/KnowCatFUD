@@ -1,10 +1,12 @@
 package life.trally.knowcatfud.utils;
 
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -47,6 +49,11 @@ public class RedisUtils {
 
     public String hGet(String key, String field) {
         return (String) redisTemplate.opsForHash().get(key, field);
+    }
+
+    public Map<String, String> hGetAll(String key) {
+        HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+        return hashOps.entries(key);
     }
 
     public void expire(String key, long timeout, TimeUnit unit) {

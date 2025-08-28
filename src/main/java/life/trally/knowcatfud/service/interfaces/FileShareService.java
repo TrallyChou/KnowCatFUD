@@ -1,9 +1,9 @@
 package life.trally.knowcatfud.service.interfaces;
 
-import life.trally.knowcatfud.entity.FileShareIntroduction;
 import life.trally.knowcatfud.request.FileShareRequest;
 import life.trally.knowcatfud.response.FileShareResponseForCreator;
 import life.trally.knowcatfud.response.FileShareResponseForOtherUsers;
+import life.trally.knowcatfud.response.FileShareSearchResponse;
 import life.trally.knowcatfud.service.ServiceResult;
 
 import java.util.List;
@@ -34,7 +34,7 @@ public interface FileShareService {
 
     ServiceResult<Result, Object> getLikeRanking();
 
-    ServiceResult<Result, List<FileShareIntroduction>> search(String keywords);
+    ServiceResult<Result, List<FileShareSearchResponse>> search(String keywords);
 
     ServiceResult<Result, List<FileShareResponseForCreator>> getShares(Long UserId);
 

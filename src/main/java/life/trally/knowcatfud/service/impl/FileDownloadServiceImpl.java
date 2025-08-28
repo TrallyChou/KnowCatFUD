@@ -1,6 +1,7 @@
 package life.trally.knowcatfud.service.impl;
 
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
+import life.trally.knowcatfud.utils.RedisUtils;
 import org.springframework.core.io.AbstractResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -19,6 +20,8 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -27,6 +30,12 @@ import java.nio.file.Paths;
 
 @Service
 public class FileDownloadServiceImpl implements FileDownloadService {
+
+    private final RedisUtils redisUtils;
+
+    public FileDownloadServiceImpl(RedisUtils redisUtils) {
+        this.redisUtils = redisUtils;
+    }
 
     @Override
     public ResponseEntity<Resource> download(String fileHash, long fileSize, String fileName, String rangeHeader) throws MalformedURLException {
@@ -131,4 +140,15 @@ public class FileDownloadServiceImpl implements FileDownloadService {
             return delegate.getFile();
         }
     }
+
+    @Override
+    public String generateDownloadToken(String hash, String size, String name) {
+        String fileToken = UUID.randomUUID().toString();
+        redisUtils.hSet("download:" + fileToken, "hash", hash);
+        redisUtils.hSet("download:" + fileToken, "size", size);
+        redisUtils.hSet("download:" + fileToken, "filename", name);
+        redisUtils.expire("download:" + fileToken, 3, TimeUnit.MINUTES);
+        return fileToken;
+    }
+
 }

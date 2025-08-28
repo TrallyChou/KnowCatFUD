@@ -15,6 +15,5 @@ public class StartupRunner implements ApplicationRunner {
     public void run(ApplicationArguments args) throws Exception {
         // 创建目录
         Files.createDirectories(Path.of("files/cache"));
-        Files.createDirectories(Path.of("images"));
     }
 }

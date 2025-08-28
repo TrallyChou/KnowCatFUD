@@ -3,8 +3,11 @@ package life.trally.knowcatfud.mapping;
 import life.trally.knowcatfud.entity.FileShare;
 import life.trally.knowcatfud.entity.FileShareIntroduction;
 import life.trally.knowcatfud.request.FileShareRequest;
+import life.trally.knowcatfud.response.FileShareSearchResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
+import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface FileShareMapping {
@@ -18,4 +21,6 @@ public interface FileShareMapping {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "uuid", ignore = true)
     FileShare toFileShare(FileShareRequest fileShareRequest);
+
+    List<FileShareSearchResponse> toFileShareSearchResponse(List<FileShareIntroduction> fileShareIntroductions);
 }
