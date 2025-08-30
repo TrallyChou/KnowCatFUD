@@ -2,12 +2,14 @@ package life.trally.knowcatfud.controller;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.HashMap;
 import java.util.Map;
 
 @NoArgsConstructor
 @Getter
+@ToString
 public class R {
     private Boolean success;
     private Integer code;
