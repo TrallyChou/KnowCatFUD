@@ -32,9 +32,9 @@ public interface FileShareService {
 
     ServiceResult<Result, String> likesCount(String shareUUID);
 
-    ServiceResult<Result, Object> getLikeRanking();
+    ServiceResult<Result, Object> getLikeRankingByPage(int page);
 
-    ServiceResult<Result, List<FileShareSearchResponse>> search(String keywords);
+    ServiceResult<Result, List<FileShareSearchResponse>> search(String keywords, int page);
 
     ServiceResult<Result, List<FileShareResponseForCreator>> getShares(Long UserId);
 

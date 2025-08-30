@@ -1,8 +1,11 @@
 package life.trally.knowcatfud.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import life.trally.knowcatfud.mapper.UserFileMapper;
+import life.trally.knowcatfud.entity.FileShare;
 import life.trally.knowcatfud.entity.UserFile;
+import life.trally.knowcatfud.mapper.FileShareMapper;
+import life.trally.knowcatfud.mapper.UserFileMapper;
+import life.trally.knowcatfud.response.UserFileResponse;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileService;
@@ -14,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,11 +33,13 @@ public class FileServiceImpl implements FileService {
 
     private final FileDownloadService fileDownloadService;
     private final RedisUtils redisUtil;
+    private final FileShareMapper fileShareMapper;
 
-    public FileServiceImpl(UserFileMapper userFileMapper, FileDownloadService fileDownloadService, RedisUtils redisUtil) {
+    public FileServiceImpl(UserFileMapper userFileMapper, FileDownloadService fileDownloadService, RedisUtils redisUtil, FileShareMapper fileShareMapper) {
         this.userFileMapper = userFileMapper;
         this.fileDownloadService = fileDownloadService;
         this.redisUtil = redisUtil;
+        this.fileShareMapper = fileShareMapper;
     }
 
     /**
@@ -163,8 +169,7 @@ public class FileServiceImpl implements FileService {
     @Override
     public ServiceResult<Result, Object> listOrDownload(Long userId, String path) {
 
-        // 一个账户同时应只由一个用户操作，所以这里应当让前端进行缓存来提高用户体验，后端不进行缓存。
-        // TODO: 限制获取文件下载token的频率
+        // 一个账户同时应只由一个用户操作，所以这里显示目录的部分应当让前端进行缓存来提高用户体验，后端不进行缓存。
 
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
         qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, path);
@@ -182,8 +187,9 @@ public class FileServiceImpl implements FileService {
                 qw1.eq(UserFile::getUserId, userId)
                         .eq(UserFile::getParent, path);     // 根据父目录查询列表
 
-                List<UserFile> filesInDir = userFileMapper.selectList(qw1);
-                return new ServiceResult<>(Result.DIR_SUCCESS, filesInDir);
+                List<UserFileResponse> userFileList = userFileMapper.getUserFiles(userId, path);
+
+                return new ServiceResult<>(Result.DIR_SUCCESS, userFileList);
 
             case UserFile.TYPE_FILE:
 
@@ -232,7 +238,7 @@ public class FileServiceImpl implements FileService {
     @Override
     public Result delete(Long userId, String path) {
 
-        // TODO: 删除关联的分享
+        // 低频操作，无需缓存
 
         if ("/".equals(path)) {
             return Result.DELETE_FAILED;
@@ -241,11 +247,32 @@ public class FileServiceImpl implements FileService {
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
         qw.eq(UserFile::getUserId, userId).eq(UserFile::getPath, path);
         UserFile userFile = userFileMapper.selectOne(qw);
-
         if (userFile == null) {
             return Result.FILE_NOT_FOUND;
         } else {
+            // 要求用户先删除关联的分享
+            LambdaQueryWrapper<FileShare> qw1 = new LambdaQueryWrapper<>();
+            qw1.eq(FileShare::getFileId, userFile.getId());
+            FileShare fileShare = fileShareMapper.selectOne(qw1);
+            if (fileShare != null) {
+                return Result.DELETE_FAILED;
+            }
+
+            // 删除用户文件
             userFileMapper.delete(qw);
+
+            // 查询md5和文件大小，是否无其它用户引用该文件
+            LambdaQueryWrapper<UserFile> qw2 = new LambdaQueryWrapper<>();
+            qw2.eq(UserFile::getHash, userFile.getHash())
+                    .eq(UserFile::getSize, userFile.getSize());
+            if (!userFileMapper.exists(qw2)) {
+                try {
+                    // 没有其它用户应用，彻底删除文件
+                    Files.delete(Path.of("files/" + userFile.getHash() + userFile.getSize()));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
             return Result.FILE_SUCCESS;
         }
 

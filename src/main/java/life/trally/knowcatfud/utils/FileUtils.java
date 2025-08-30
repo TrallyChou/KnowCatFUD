@@ -18,6 +18,7 @@ public class FileUtils {
     }
 
     // 使用NIO读取文件并计算SHA-256哈希值
+    // 输出为大写
     public static String nioSHA256(Path path) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
 

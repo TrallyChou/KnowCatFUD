@@ -112,8 +112,13 @@ public class FilesShareController {
     // PS:SpringBoot优先匹配具体路径
     @GetMapping("/share/ranking")
     @PreAuthorize("hasAnyAuthority('files_share:get_like_ranking')")
-    public R getLikeRanking() {
-        ServiceResult<FileShareService.Result, Object> r = fileShareService.getLikeRanking();
+    public R getLikeRanking(
+            @RequestParam int page
+    ) {
+        if (page <= 0) {
+            return R.error().message("参数错误");
+        }
+        ServiceResult<FileShareService.Result, Object> r = fileShareService.getLikeRankingByPage(page);
         return switch (r.getResult()) {
             case SUCCESS -> R.ok().message("获取成功").data("ranking", r.getData());
             default -> R.error().message("获取失败");
@@ -124,10 +129,11 @@ public class FilesShareController {
     @GetMapping("/share/search")
 //    @PreAuthorize("")
     public R search(
-            @RequestParam String keywords
+            @RequestParam String keywords,
+            @RequestParam int page
     ) {
 
-        var r = fileShareService.search(keywords);
+        var r = fileShareService.search(keywords, page);
         return switch (r.getResult()) {
             case SUCCESS -> R.ok().data("result", r.getData());
             default -> R.error().message("搜索失败");
@@ -136,7 +142,7 @@ public class FilesShareController {
 
     @GetMapping("/share")
     public R getShares(@AuthenticationPrincipal LoginUser loginUser) {
-        var r  = fileShareService.getShares(loginUser.getId());
+        var r = fileShareService.getShares(loginUser.getId());
         return switch (r.getResult()) {
             case SUCCESS -> R.ok().data("shares", r.getData());
             default -> R.error().message("失败");
@@ -153,9 +159,6 @@ public class FilesShareController {
             default -> R.error().message("删除失败");
         };
     }
-
-
-
 
 
 }

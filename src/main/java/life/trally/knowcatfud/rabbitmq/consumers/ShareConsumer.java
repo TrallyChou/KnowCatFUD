@@ -58,7 +58,7 @@ public class ShareConsumer {
         }
         redisUtils.delete("share:info:" + shareId);
         fileShareMapper.deleteById(shareId);
-        redisUtils.delete("share:uuid_id:" + uuid); // 解除禁止访问
+        redisUtils.delete("share:uuid_id:" + uuid);
 
         fileShareIntroductionMapper.deleteById(shareId);
 

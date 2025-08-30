@@ -17,7 +17,7 @@ public interface FileShareMapper extends BaseMapper<FileShare> {
             inner join share_introduction on share_introduction.id = file_share.id
             where user_id = #{userId}
             """)
-    List<FileShareResponseForCreator> getShares(Long userId);
+    List<FileShareResponseForCreator> getMyShares(Long userId);
 
     @Select("""
             select user_file.user_id from user_file
@@ -25,12 +25,4 @@ public interface FileShareMapper extends BaseMapper<FileShare> {
             where file_share.id = #{shareId}
             """)
     Long getUserIdByShareId(Long shareId);
-
-    @Select("""
-            select type,expire,title,introduction,created_at
-            from file_share
-            inner join share_introduction on file_share.id = share_introduction.id
-            where file_share.id = #{shareId}
-            """)
-    FileShareResponseForOtherUsers getShare(Long shareId);
 }

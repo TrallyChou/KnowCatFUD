@@ -20,4 +20,6 @@ public interface FileDownloadService {
     ResponseEntity<Resource> download(String fileHash, long fileSize, String fileName, String rangeHeader) throws MalformedURLException;
 
     String generateDownloadToken(String hash, String size, String name);
+
+    // TODO：远程下载功能
 }

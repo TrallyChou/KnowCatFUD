@@ -24,6 +24,10 @@ import life.trally.knowcatfud.utils.JsonUtils;
 import life.trally.knowcatfud.utils.RedisUtils;
 import life.trally.knowcatfud.utils.TimeUtils;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.Criteria;
@@ -176,8 +180,7 @@ public class FileShareServiceImpl implements FileShareService {
         if (id == null) {
             return new ServiceResult<>(Result.SHARE_NOT_FOUND, null);
         }
-        String infoKey = "share:info:" + id;
-        Map<String, String> shareInfo = redisUtils.hGetAll(infoKey);
+        Map<String, String> shareInfo = redisUtils.hGetAll("share:info:" + id);
         // 查询
         String expireString = shareInfo.get("expire");
         Integer expire = expireString == null ? null : Integer.valueOf(expireString);
@@ -246,7 +249,7 @@ public class FileShareServiceImpl implements FileShareService {
 
         // 用户未点赞，则记录点赞并增加点赞数
         redisUtils.sAdd("share:likes:" + shareId, String.valueOf(userId));
-        redisUtils.zIncrby("share:ranking", String.valueOf(shareId), 1);
+        redisUtils.zIncrby("share:ranking", String.valueOf(shareUUID), 1);
 
         // 同步到mysql....使用消息队列
         String message = JsonUtils.serialize(new LikeMessage(userId, shareId));
@@ -286,7 +289,7 @@ public class FileShareServiceImpl implements FileShareService {
 
         int type = Integer.parseInt(redisUtils.hGet(infoKey, "type"));
         if (type == FileShare.PUBLIC_RANKING) {
-            likesCountString = String.valueOf(redisUtils.zScore("share:ranking", String.valueOf(shareId)));
+            likesCountString = String.valueOf(redisUtils.zScore("share:ranking", String.valueOf(shareUUID)));
         } else {
             likesCountString = redisUtils.hGet(infoKey, "likes");
         }
@@ -295,13 +298,20 @@ public class FileShareServiceImpl implements FileShareService {
     }
 
     @Override
-    public ServiceResult<Result, Object> getLikeRanking() {
+    public ServiceResult<Result, Object> getLikeRankingByPage(int page) {
 
-        // TODO: 分页
+        int start = (page - 1) * 10;
+        int end = page * 10 - 1;
+        return new ServiceResult<>(Result.SUCCESS,
+                getLikeRanking(start, end)
+        );
+    }
 
-        Set<ZSetOperations.TypedTuple<String>> ranking = redisUtils.zRevRangeWithScore("share:ranking", 0, 20);
+    public ServiceResult<Result, Object> getLikeRanking(int start, int end) {
 
+        Set<ZSetOperations.TypedTuple<String>> ranking = redisUtils.zRevRangeWithScore("share:ranking", start, end);
         return new ServiceResult<>(Result.SUCCESS, ranking);
+
     }
 
 
@@ -382,7 +392,7 @@ public class FileShareServiceImpl implements FileShareService {
 
         // 公开且排行分享
         if (fileShare.getType() == FileShare.PUBLIC_RANKING) {
-            redisUtils.zAdd("share:ranking", shareId, likesCount);
+            redisUtils.zAdd("share:ranking", shareUUID, likesCount);
         } else {
             // 非公开分享 将获赞数量缓存于分享信息，不参与排行
             redisUtils.hSet(infoKey, "likes", String.valueOf(likesCount));
@@ -409,17 +419,23 @@ public class FileShareServiceImpl implements FileShareService {
     }
 
     @Override
-    public ServiceResult<Result, List<FileShareSearchResponse>> search(String keywords) {
+    public ServiceResult<Result, List<FileShareSearchResponse>> search(String keywords, int page) {
 
-        // TODO: 分页
-        Query query = new CriteriaQuery(
+        if (page <= 0) return new ServiceResult<>(Result.FAILED, null);
+
+        Pageable pageable = PageRequest.of(page - 1, 10);
+
+        Query matchQuery = new CriteriaQuery(
                 new Criteria("introduction").matches(keywords)
                         .or("title").matches(keywords)
         );
+        NativeQuery nativeQuery = new NativeQueryBuilder()
+                .withQuery(matchQuery)
+                .withPageable(pageable)
+                .build();
+
         List<FileShareIntroduction> fileShareIntroductions = elasticsearchOperations
-                .search(query, FileShareIntroduction.class)
-                .get()
-                .limit(20)
+                .search(nativeQuery, FileShareIntroduction.class)
                 .map(SearchHit::getContent)
                 .toList();
         var r = fileShareMapping.toFileShareSearchResponse(fileShareIntroductions);
@@ -428,7 +444,7 @@ public class FileShareServiceImpl implements FileShareService {
 
     @Override
     public ServiceResult<Result, List<FileShareResponseForCreator>> getShares(Long userId) {
-        List<FileShareResponseForCreator> fileShares = fileShareMapper.getShares(userId);
+        List<FileShareResponseForCreator> fileShares = fileShareMapper.getMyShares(userId);
         return new ServiceResult<>(Result.SUCCESS, fileShares);
     }
 
