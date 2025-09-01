@@ -4,51 +4,73 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @NoArgsConstructor
 @Getter
 @ToString
-public class R {
+public class R<T> {
     private Boolean success;
     private Integer code;
     private String message;
-    private final Map<String, Object> data = new HashMap<>();
+    private T data;
 
-    public static R ok() {
-        R r = new R();
-        r.success = true;
-        r.code = 200;
-        r.message = "success";
-        return r;
+    public static <T> R<T> ok() {
+        return new <T>R<T>().success(true).code(200);
     }
 
-    public static R error() {
-        R r = new R();
-        r.success = false;
-        r.code = 500;
-        r.message = "error";
-        return r;
+    // 为了支持利用类型推断来简化代码
+    public static <T> R<T> ok(int code) {
+        return new R<T>().success(true).code(code);
     }
 
-    public R success(Boolean success) {
+    public static <T> R<T> ok(String message) {
+        return new R<T>().success(true).code(200).message(message);
+    }
+
+    public static <T> R<T> ok(int code, String message) {
+        return new R<T>().success(true).code(code).message(message);
+    }
+
+    public static <T> R<T> ok(T data) {
+        return new R<T>().success(true).code(200).message("success").data(data);
+    }
+
+    public static <T> R<T> error() {
+        return new R<T>().success(false).code(500);
+    }
+
+    public static <T> R<T> error(int code) {
+        return new R<T>().success(false).code(code);
+    }
+
+    public static <T> R<T> error(String message) {
+        return new R<T>().success(false).code(500).message(message);
+    }
+
+    public static <T> R<T> error(int code, String message) {
+        return new R<T>().success(false).code(code).message(message);
+    }
+
+    public static <T> R<T> error(T data) {
+        return new R<T>().success(false).code(500).message("error").data(data);
+    }
+
+    public R<T> success(Boolean success) {
         this.success = success;
         return this;
     }
 
-    public R message(String message) {
+    public R<T> message(String message) {
         this.message = message;
         return this;
     }
 
-    public R code(Integer code) {
+    public R<T> code(Integer code) {
         this.code = code;
         return this;
     }
 
-    public R data(String name, Object data) {
-        this.data.put(name, data);
+    public R<T> data(T data) {
+        this.data = data;
         return this;
     }
 

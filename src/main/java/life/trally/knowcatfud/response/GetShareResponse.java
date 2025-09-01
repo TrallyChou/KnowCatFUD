@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class FileShareResponseForOtherUsers {
+public class GetShareResponse {
     private Integer type;  // 分享类型
     private Integer expire;
     private String title;

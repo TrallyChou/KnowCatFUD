@@ -42,6 +42,16 @@ public class SpringSecurityConfig {
                 // 放行请求
                 auth -> auth
                         .requestMatchers("/login", "/reg").permitAll()
+                        // Swagger
+                        .requestMatchers(HttpMethod.GET,
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs",
+                                "/v3/api-docs/**",
+                                "/swagger-resources",
+                                "/swagger-resources/**",
+                                "/webjars/**").permitAll()
+
                         .requestMatchers(HttpMethod.GET,
                                 "/share/*",
                                 "/share/*/download",

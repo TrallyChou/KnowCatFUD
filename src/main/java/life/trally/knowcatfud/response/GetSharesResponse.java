@@ -3,7 +3,7 @@ package life.trally.knowcatfud.response;
 import lombok.Data;
 
 @Data
-public class FileShareResponseForCreator {
+public class GetSharesResponse {
     private String uuid;
     private Integer type;  // 分享类型
     private String password;

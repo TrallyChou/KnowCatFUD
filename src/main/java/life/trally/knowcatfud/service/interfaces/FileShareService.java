@@ -1,12 +1,14 @@
 package life.trally.knowcatfud.service.interfaces;
 
-import life.trally.knowcatfud.request.FileShareRequest;
-import life.trally.knowcatfud.response.FileShareResponseForCreator;
-import life.trally.knowcatfud.response.FileShareResponseForOtherUsers;
+import life.trally.knowcatfud.request.ShareRequest;
+import life.trally.knowcatfud.response.GetShareResponse;
 import life.trally.knowcatfud.response.FileShareSearchResponse;
+import life.trally.knowcatfud.response.GetSharesResponse;
 import life.trally.knowcatfud.service.ServiceResult;
+import org.springframework.data.redis.core.ZSetOperations;
 
 import java.util.List;
+import java.util.Set;
 
 public interface FileShareService {
 
@@ -20,9 +22,9 @@ public interface FileShareService {
         NOT_LIKE
     }
 
-    ServiceResult<Result, String> share(Long userId, String path, FileShareRequest fileShare);
+    ServiceResult<Result, String> share(Long userId, String path, ShareRequest shareRequest);
 
-    ServiceResult<Result, FileShareResponseForOtherUsers> getShare(String shareUUID, String password);
+    ServiceResult<Result, GetShareResponse> getShare(String shareUUID, String password);
 
     ServiceResult<Result, String> download(String shareUUID, String password);
 
@@ -30,13 +32,13 @@ public interface FileShareService {
 
     Result likeStatus(Long userId, String shareUUID);
 
-    ServiceResult<Result, String> likesCount(String shareUUID);
+    ServiceResult<Result, Integer> likesCount(String shareUUID);
 
-    ServiceResult<Result, Object> getLikeRankingByPage(int page);
+    ServiceResult<Result, Set<ZSetOperations.TypedTuple<String>>> getLikeRankingByPage(int page);
 
     ServiceResult<Result, List<FileShareSearchResponse>> search(String keywords, int page);
 
-    ServiceResult<Result, List<FileShareResponseForCreator>> getShares(Long UserId);
+    ServiceResult<Result, List<GetSharesResponse>> getShares(Long UserId);
 
     Result delete(Long userId, String shareUuid);
 }

@@ -13,10 +13,10 @@ import life.trally.knowcatfud.mapper.UserLikesShareMapper;
 import life.trally.knowcatfud.mapping.FileShareMapping;
 import life.trally.knowcatfud.rabbitmq.messages.DeleteShareMessage;
 import life.trally.knowcatfud.rabbitmq.messages.LikeMessage;
-import life.trally.knowcatfud.request.FileShareRequest;
-import life.trally.knowcatfud.response.FileShareResponseForCreator;
-import life.trally.knowcatfud.response.FileShareResponseForOtherUsers;
+import life.trally.knowcatfud.request.ShareRequest;
 import life.trally.knowcatfud.response.FileShareSearchResponse;
+import life.trally.knowcatfud.response.GetShareResponse;
+import life.trally.knowcatfud.response.GetSharesResponse;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.service.interfaces.FileShareService;
@@ -73,7 +73,7 @@ public class FileShareServiceImpl implements FileShareService {
 
 
     @Override
-    public ServiceResult<Result, String> share(Long userId, String path, FileShareRequest fileShareRequest) {
+    public ServiceResult<Result, String> share(Long userId, String path, ShareRequest shareRequest) {
 
         // 检查文件是否存在
         LambdaQueryWrapper<UserFile> qw = new LambdaQueryWrapper<>();
@@ -112,19 +112,19 @@ public class FileShareServiceImpl implements FileShareService {
 
         // 未分享过
 
-        if (fileShareRequest.getExpire() != null) {
+        if (shareRequest.getExpire() != null) {
             // 过期时间禁止负数输入
-            if (fileShareRequest.getExpire() <= 0) {
+            if (shareRequest.getExpire() <= 0) {
                 return new ServiceResult<>(Result.FAILED, null);
             }
 
             // 排行分享不允许设置过期时间
-            if (fileShareRequest.getType() == FileShare.PUBLIC_RANKING) {
+            if (shareRequest.getType() == FileShare.PUBLIC_RANKING) {
                 return new ServiceResult<>(Result.FAILED, null);
             }
         }
 
-        FileShare fileShare = fileShareMapping.toFileShare(fileShareRequest);
+        FileShare fileShare = fileShareMapping.toFileShare(shareRequest);
         // 分享操作是低频操作，暂时不增加redis缓存。且考虑到分享在mysql中存储需要获取id，为在架构简单的同时保持一致性，暂时不用redis
         // 后续将改用有序UUID作为mysql的主键
         String shareUUID = UUID.randomUUID().toString();
@@ -138,7 +138,7 @@ public class FileShareServiceImpl implements FileShareService {
         Long id = IdWorker.getId();
         fileShare.setId(id);
         // 分享介绍
-        FileShareIntroduction fileShareIntroduction = fileShareMapping.toShareIntroduction(fileShare, fileShareRequest);
+        FileShareIntroduction fileShareIntroduction = fileShareMapping.toShareIntroduction(fileShare, shareRequest);
 
         Boolean executeResult = transactionTemplate.execute(
                 status -> {
@@ -174,7 +174,7 @@ public class FileShareServiceImpl implements FileShareService {
     }
 
     @Override
-    public ServiceResult<Result, FileShareResponseForOtherUsers> getShare(String shareUUID, String password) {
+    public ServiceResult<Result, GetShareResponse> getShare(String shareUUID, String password) {
 
         Long id = uuid2Id(shareUUID);
         if (id == null) {
@@ -184,7 +184,7 @@ public class FileShareServiceImpl implements FileShareService {
         // 查询
         String expireString = shareInfo.get("expire");
         Integer expire = expireString == null ? null : Integer.valueOf(expireString);
-        var r = new FileShareResponseForOtherUsers(
+        var r = new GetShareResponse(
                 Integer.valueOf(shareInfo.get("type")),
                 expire,
                 shareInfo.get("title"),
@@ -278,7 +278,7 @@ public class FileShareServiceImpl implements FileShareService {
     }
 
     @Override
-    public ServiceResult<Result, String> likesCount(String shareUUID) {
+    public ServiceResult<Result, Integer> likesCount(String shareUUID) {
         Long shareId = uuid2Id(shareUUID);
         if (shareId == null) {
             return new ServiceResult<>(Result.FAILED, null);
@@ -293,21 +293,20 @@ public class FileShareServiceImpl implements FileShareService {
         } else {
             likesCountString = redisUtils.hGet(infoKey, "likes");
         }
-
-        return new ServiceResult<>(Result.SUCCESS, likesCountString);
+        Integer likesCount = likesCountString == null ? null : Float.valueOf(likesCountString).intValue();
+        return new ServiceResult<>(Result.SUCCESS, likesCount);
     }
 
     @Override
-    public ServiceResult<Result, Object> getLikeRankingByPage(int page) {
+    public ServiceResult<Result, Set<ZSetOperations.TypedTuple<String>>> getLikeRankingByPage(int page) {
 
         int start = (page - 1) * 10;
         int end = page * 10 - 1;
-        return new ServiceResult<>(Result.SUCCESS,
-                getLikeRanking(start, end)
-        );
+        var r = getLikeRanking(start, end);
+        return new ServiceResult<>(r.getResult(), r.getData());
     }
 
-    public ServiceResult<Result, Object> getLikeRanking(int start, int end) {
+    public ServiceResult<Result, Set<ZSetOperations.TypedTuple<String>>> getLikeRanking(int start, int end) {
 
         Set<ZSetOperations.TypedTuple<String>> ranking = redisUtils.zRevRangeWithScore("share:ranking", start, end);
         return new ServiceResult<>(Result.SUCCESS, ranking);
@@ -443,8 +442,8 @@ public class FileShareServiceImpl implements FileShareService {
     }
 
     @Override
-    public ServiceResult<Result, List<FileShareResponseForCreator>> getShares(Long userId) {
-        List<FileShareResponseForCreator> fileShares = fileShareMapper.getMyShares(userId);
+    public ServiceResult<Result, List<GetSharesResponse>> getShares(Long userId) {
+        List<GetSharesResponse> fileShares = fileShareMapper.getMyShares(userId);
         return new ServiceResult<>(Result.SUCCESS, fileShares);
     }
 

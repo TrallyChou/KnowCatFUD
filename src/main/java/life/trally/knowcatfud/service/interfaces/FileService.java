@@ -1,6 +1,7 @@
 package life.trally.knowcatfud.service.interfaces;
 
 import life.trally.knowcatfud.entity.UserFile;
+import life.trally.knowcatfud.response.ListOrDownloadResponse;
 import life.trally.knowcatfud.service.ServiceResult;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +24,7 @@ public interface FileService {
 
     Result uploadOrMkdir(Long userId, String path, MultipartFile multipartFile, UserFile userFile);
 
-    ServiceResult<Result, Object> listOrDownload(Long userId, String path);
+    ServiceResult<Result, ListOrDownloadResponse> listOrDownload(Long userId, String path);
 
     ResponseEntity<Resource> download(String token, String range);
 

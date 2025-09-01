@@ -5,6 +5,7 @@ import life.trally.knowcatfud.entity.FileShare;
 import life.trally.knowcatfud.entity.UserFile;
 import life.trally.knowcatfud.mapper.FileShareMapper;
 import life.trally.knowcatfud.mapper.UserFileMapper;
+import life.trally.knowcatfud.response.ListOrDownloadResponse;
 import life.trally.knowcatfud.response.UserFileResponse;
 import life.trally.knowcatfud.service.ServiceResult;
 import life.trally.knowcatfud.service.interfaces.FileDownloadService;
@@ -167,7 +168,7 @@ public class FileServiceImpl implements FileService {
      * @return 状态枚举和文件列表数据或文件下载token
      */
     @Override
-    public ServiceResult<Result, Object> listOrDownload(Long userId, String path) {
+    public ServiceResult<Result, ListOrDownloadResponse> listOrDownload(Long userId, String path) {
 
         // 一个账户同时应只由一个用户操作，所以这里显示目录的部分应当让前端进行缓存来提高用户体验，后端不进行缓存。
 
@@ -189,7 +190,8 @@ public class FileServiceImpl implements FileService {
 
                 List<UserFileResponse> userFileList = userFileMapper.getUserFiles(userId, path);
 
-                return new ServiceResult<>(Result.DIR_SUCCESS, userFileList);
+                // TODO: 改用DTO
+                return new ServiceResult<>(Result.DIR_SUCCESS, new ListOrDownloadResponse(userFileList, null));
 
             case UserFile.TYPE_FILE:
 
@@ -199,7 +201,7 @@ public class FileServiceImpl implements FileService {
                 redisUtil.hSet("download:" + fileToken, "filename", StringUtils.getFilename(userFile.getPath()));
                 redisUtil.expire("download:" + fileToken, 3, TimeUnit.MINUTES);
 
-                return new ServiceResult<>(Result.FILE_SUCCESS, fileToken);
+                return new ServiceResult<>(Result.FILE_SUCCESS, new ListOrDownloadResponse(null, fileToken));
             default:
                 return new ServiceResult<>(Result.INVALID_ACCESS, null);
         }

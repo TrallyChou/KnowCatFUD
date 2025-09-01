@@ -49,3 +49,4 @@ logging:
     rollingpolicy:
       file-name-pattern: "logs/%d{yyyy-MM-dd-HH}-%i.log"
       max-file-size: 10MB
+
