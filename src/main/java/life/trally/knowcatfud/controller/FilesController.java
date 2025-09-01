@@ -46,6 +46,7 @@ public class FilesController {
     }
 
     // 文件列表获取 或 文件下载
+    @Operation(summary = "获取文件列表或者获取文件下载token",description = "以/结尾时认定为目录，获取文件列表，否则获取文件下载token")
     @GetMapping("/files/{*path}")
     @PreAuthorize("hasAnyAuthority('files:list')")
     public R<ListOrDownloadResponse> listOrDownload(
@@ -63,6 +64,7 @@ public class FilesController {
     }
 
     // 文件删除
+    @Operation(summary = "删除文件")
     @DeleteMapping("/files/{*path}")
     @PreAuthorize("hasAnyAuthority('files:delete')")
     public R<Void> delete(
@@ -81,6 +83,7 @@ public class FilesController {
     }
 
     @GetMapping("/download/{token}")
+    @Operation(summary = "下载文件")
     public ResponseEntity<Resource> download(
             @PathVariable String token,
             @RequestHeader("Range") @Nullable String range) {

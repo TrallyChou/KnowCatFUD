@@ -1,5 +1,6 @@
 package life.trally.knowcatfud.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
 import life.trally.knowcatfud.jwt.LoginUser;
 import life.trally.knowcatfud.request.ShareRequest;
 import life.trally.knowcatfud.response.*;
@@ -27,6 +28,7 @@ public class FilesShareController {
     // 分享
     @PostMapping("/share/{*path}")
     @PreAuthorize("hasAnyAuthority('files_share:share')")
+    @Operation(summary = "分享文件")
     public R<ShareResponse> share(
             @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String path,
@@ -34,7 +36,6 @@ public class FilesShareController {
 
         ServiceResult<FileShareService.Result, String> r = fileShareService.share(loginUser.getId(), path, shareRequest);
         return switch (r.getResult()) {
-            // TODO: 改用DTO+mapstruct从而避免new
             case SUCCESS -> R.ok(new ShareResponse(r.getData())).message("分享成功");
             case SHARE_NOT_FOUND -> R.error("文件未找到");
             case ALREADY_SHARED -> R.ok(new ShareResponse(r.getData())).message("已经分享过了");
@@ -45,6 +46,7 @@ public class FilesShareController {
 
     // 获取
     @GetMapping(value = "/share/{shareUUID}")
+    @Operation(summary = "获取分享信息")
     //@PreAuthorize("hasAnyAuthority('files_share:download')")
     public R<GetShareResponse> getShare(
             @PathVariable String shareUUID,
@@ -63,6 +65,7 @@ public class FilesShareController {
     // 下载
     @GetMapping(value = "/share/{shareUUID}/download")
     //@PreAuthorize("hasAnyAuthority('files_share:download')")
+    @Operation(summary = "获取分享文件下载token")
     public R<ShareDownloadResponse> shareDownload(
             @PathVariable String shareUUID,
             @RequestParam @Nullable String password) {
@@ -79,6 +82,7 @@ public class FilesShareController {
     // 点赞
     @PatchMapping("/share/{shareUUID}/like")
     @PreAuthorize("hasAnyAuthority('files_share:like')")
+    @Operation(summary = "点赞")
     public R<Void> like(
             @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String shareUUID) {
@@ -92,6 +96,7 @@ public class FilesShareController {
     // 获取点赞状态
     @GetMapping("/share/{shareUUID}/like")
     @PreAuthorize("hasAnyAuthority('files_share:like')")
+    @Operation(summary = "获取点赞状态")
     public R<Void> likeStatus(
             @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String shareUUID) {
@@ -104,6 +109,7 @@ public class FilesShareController {
 
     // 获取点赞数
     @GetMapping("/share/{shareUUID}/likes")
+    @Operation(summary = "获取点赞数")
     // 该功能无需登录，无需权限   @PreAuthorize("hasAnyAuthority('files_share:like')")
     public R<LikesCountResponse> likesCount(
             @PathVariable String shareUUID) {
@@ -118,6 +124,7 @@ public class FilesShareController {
     // PS:SpringBoot优先匹配具体路径
     @GetMapping("/share/ranking")
     @PreAuthorize("hasAnyAuthority('files_share:get_like_ranking')")
+    @Operation(summary = "获取点赞排行榜")
     public R<GetLikesRankingResponse> getLikesRanking(
             @RequestParam int page
     ) {
@@ -133,6 +140,7 @@ public class FilesShareController {
 
     // 搜索
     @GetMapping("/share/search")
+    @Operation(summary = "根据分享介绍搜索分享")
 //    @PreAuthorize("")
     public R<List<FileShareSearchResponse>> shareSearch(
             @RequestParam String keywords,
@@ -147,6 +155,7 @@ public class FilesShareController {
     }
 
     @GetMapping("/share")
+    @Operation(summary = "获取自己创建的分享")
     public R<List<GetSharesResponse>> getShares(@AuthenticationPrincipal LoginUser loginUser) {
         var r = fileShareService.getShares(loginUser.getId());
         return switch (r.getResult()) {
@@ -156,12 +165,14 @@ public class FilesShareController {
     }
 
     @DeleteMapping("/share/{shareUUID}")
+    @Operation(summary = "删除 分享")
     public R<Void> delete(
             @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String shareUUID) {
         return switch (fileShareService.delete(loginUser.getId(), shareUUID)) {
             case SUCCESS -> R.ok("删除成功");
             case SHARE_NOT_FOUND -> R.ok("分享不存在");
+            case INVALID_ACCESS -> R.error("非法访问");
             default -> R.error("删除失败");
         };
     }

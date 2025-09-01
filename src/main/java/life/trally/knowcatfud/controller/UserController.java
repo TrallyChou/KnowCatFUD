@@ -1,5 +1,6 @@
 package life.trally.knowcatfud.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
 import life.trally.knowcatfud.mapping.RequestMapping;
 import life.trally.knowcatfud.request.LoginRequest;
 import life.trally.knowcatfud.request.RegRequest;
@@ -21,6 +22,7 @@ public class UserController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "登录")
     public R<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
         String jwt = userService.login(requestMapping.toUser(loginRequest));
         if (StringUtils.hasLength(jwt)) {
@@ -30,6 +32,7 @@ public class UserController {
     }
 
     @PostMapping("/reg")
+    @Operation(summary = "注册")
     public R<Void> reg(@RequestBody RegRequest regRequest) {
         return switch (userService.reg(requestMapping.toUser(regRequest))) {
             case USER_ALREADY_EXIST -> R.error("用户已存在");

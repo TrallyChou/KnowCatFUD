@@ -2,11 +2,9 @@ package life.trally.knowcatfud.controller;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 
 @NoArgsConstructor
 @Getter
-@ToString
 public class R<T> {
     private Boolean success;
     private Integer code;
