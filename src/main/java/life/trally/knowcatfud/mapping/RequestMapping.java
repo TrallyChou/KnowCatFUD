@@ -1,11 +1,11 @@
 package life.trally.knowcatfud.mapping;
 
 import life.trally.knowcatfud.config.MappingConfig;
-import life.trally.knowcatfud.entity.User;
-import life.trally.knowcatfud.entity.UserFile;
-import life.trally.knowcatfud.request.LoginRequest;
-import life.trally.knowcatfud.request.RegRequest;
-import life.trally.knowcatfud.request.UploadOrMkdirRequest;
+import life.trally.knowcatfud.pojo.entity.User;
+import life.trally.knowcatfud.pojo.entity.UserFile;
+import life.trally.knowcatfud.pojo.request.LoginRequest;
+import life.trally.knowcatfud.pojo.request.RegRequest;
+import life.trally.knowcatfud.pojo.request.UploadOrMkdirRequest;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring", config = MappingConfig.class)  // 配置来忽略缺少的字段

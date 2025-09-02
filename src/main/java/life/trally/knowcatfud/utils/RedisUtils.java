@@ -23,10 +23,6 @@ public class RedisUtils {
         redisTemplate.opsForValue().set(key, value, timeout, unit);
     }
 
-    public void set(String key, String value, long timeout) {
-        redisTemplate.opsForValue().set(key, value, timeout, TimeUnit.HOURS);
-    }
-
     public void set(String key, String value) {
         redisTemplate.opsForValue().set(key, value);
     }

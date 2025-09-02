@@ -2,7 +2,7 @@ package life.trally.knowcatfud.rabbitmq.consumers;
 
 
 import life.trally.knowcatfud.mapper.UserLikesShareMapper;
-import life.trally.knowcatfud.entity.UserLikesShare;
+import life.trally.knowcatfud.pojo.entity.UserLikesShare;
 import life.trally.knowcatfud.rabbitmq.messages.LikeMessage;
 import life.trally.knowcatfud.utils.JsonUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;

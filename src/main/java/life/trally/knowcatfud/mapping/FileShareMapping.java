@@ -1,10 +1,10 @@
 package life.trally.knowcatfud.mapping;
 
 import life.trally.knowcatfud.config.MappingConfig;
-import life.trally.knowcatfud.entity.FileShare;
-import life.trally.knowcatfud.entity.FileShareIntroduction;
-import life.trally.knowcatfud.request.ShareRequest;
-import life.trally.knowcatfud.response.FileShareSearchResponse;
+import life.trally.knowcatfud.pojo.entity.FileShare;
+import life.trally.knowcatfud.pojo.entity.FileShareIntroduction;
+import life.trally.knowcatfud.pojo.request.ShareRequest;
+import life.trally.knowcatfud.pojo.response.FileShareSearchResponse;
 import org.mapstruct.Mapper;
 
 import java.util.List;

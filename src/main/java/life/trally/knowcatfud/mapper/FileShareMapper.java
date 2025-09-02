@@ -1,9 +1,8 @@
 package life.trally.knowcatfud.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import life.trally.knowcatfud.entity.FileShare;
-import life.trally.knowcatfud.response.GetShareResponse;
-import life.trally.knowcatfud.response.GetSharesResponse;
+import life.trally.knowcatfud.pojo.entity.FileShare;
+import life.trally.knowcatfud.pojo.response.GetSharesResponse;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;

@@ -1,6 +1,8 @@
 package life.trally.knowcatfud.config;
 
 import life.trally.knowcatfud.config.filter.JwtAuthenticationTokenFilter;
+import life.trally.knowcatfud.config.handler.CustomerAccessDeniedHandler;
+import life.trally.knowcatfud.config.handler.CustomerAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -35,7 +37,8 @@ public class SpringSecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           CustomerAccessDeniedHandler customerAccessDeniedHandler, CustomerAuthenticationEntryPoint customerAuthenticationEntryPoint) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
 
         http.authorizeHttpRequests(
@@ -62,6 +65,15 @@ public class SpringSecurityConfig {
         );
 
         http.addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
+        http.exceptionHandling(
+                configurer -> {
+                    configurer.accessDeniedHandler(customerAccessDeniedHandler);
+                    configurer.authenticationEntryPoint(customerAuthenticationEntryPoint);
+                }
+        );
+
+        http.logout(logout -> logout.disable());  // 禁用SpringBoot自带的/logout API
+
         return http.build();
 
     }

@@ -1,9 +1,9 @@
 package life.trally.knowcatfud.rabbitmq.consumers;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import life.trally.knowcatfud.entity.FileShare;
-import life.trally.knowcatfud.entity.FileShareIntroduction;
-import life.trally.knowcatfud.entity.UserLikesShare;
+import life.trally.knowcatfud.pojo.entity.FileShare;
+import life.trally.knowcatfud.pojo.entity.FileShareIntroduction;
+import life.trally.knowcatfud.pojo.entity.UserLikesShare;
 import life.trally.knowcatfud.mapper.FileShareIntroductionMapper;
 import life.trally.knowcatfud.mapper.FileShareMapper;
 import life.trally.knowcatfud.mapper.UserLikesShareMapper;

@@ -5,9 +5,10 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import life.trally.knowcatfud.jwt.LoginUser;
+import life.trally.knowcatfud.pojo.jwt.LoginUser;
 import life.trally.knowcatfud.utils.JsonUtils;
 import life.trally.knowcatfud.utils.JwtUtils;
+import life.trally.knowcatfud.utils.RedisUtils;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +20,12 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 
+    private final RedisUtils redisUtils;
+
+    public JwtAuthenticationTokenFilter(RedisUtils redisUtils) {
+        this.redisUtils = redisUtils;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, @NotNull HttpServletResponse response, @NotNull FilterChain filterChain) throws ServletException, IOException {
 
@@ -26,6 +33,9 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 //        System.out.println(authorization);
 
         try {
+            if (redisUtils.exists("logout:" + authorization)) {
+                throw new RuntimeException();
+            }
             Claims claims = JwtUtils.parseToken(authorization);
             String loginUserStr = claims.getSubject();
             LoginUser loginUser = JsonUtils.deserialize(loginUserStr, LoginUser.class);

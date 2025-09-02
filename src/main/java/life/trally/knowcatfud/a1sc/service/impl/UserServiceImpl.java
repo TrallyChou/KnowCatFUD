@@ -1,0 +1,92 @@
+package life.trally.knowcatfud.a1sc.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import life.trally.knowcatfud.a1sc.service.interfaces.UserService;
+import life.trally.knowcatfud.mapper.UserFileMapper;
+import life.trally.knowcatfud.mapper.UserMapper;
+import life.trally.knowcatfud.pojo.entity.User;
+import life.trally.knowcatfud.pojo.entity.UserFile;
+import life.trally.knowcatfud.pojo.jwt.LoginUser;
+import life.trally.knowcatfud.utils.JsonUtils;
+import life.trally.knowcatfud.utils.JwtUtils;
+import life.trally.knowcatfud.utils.RedisUtils;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+@Service
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    private final AuthenticationManager authenticationManager;
+
+    private final UserMapper userMapper;
+
+    private final PasswordEncoder passwordEncoder;
+
+    private final UserFileMapper userFileMapper;
+    private final RedisUtils redisUtils;
+
+    public UserServiceImpl(AuthenticationManager authenticationManager, UserMapper userMapper, PasswordEncoder passwordEncoder, UserFileMapper userFileMapper, RedisUtils redisUtils) {
+        this.authenticationManager = authenticationManager;
+        this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.userFileMapper = userFileMapper;
+        this.redisUtils = redisUtils;
+    }
+
+
+    @Override
+    public String login(User user) {  // 用户认证
+        UsernamePasswordAuthenticationToken usernameAndPassword = new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword());
+        Authentication authenticate;
+        try {
+            authenticate = authenticationManager.authenticate(usernameAndPassword);// 进行认证. spring security会自动调用UserDetailsService的实现类
+        } catch (Exception e) {
+            return null; // 登陆失败
+        }
+        LoginUser principle = (LoginUser) authenticate.getPrincipal();
+
+        Map<String, Object> claims = Map.of(
+                "other", "");
+
+        /*
+         * clams:
+         * subject: LoginUser
+         */
+
+        String jwt = JwtUtils.generateToken(claims, JsonUtils.serialize(principle));
+
+        return jwt;
+    }
+
+    @Override
+    public Result reg(User user) {  // 用户注册
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("username", user.getUsername());
+
+        if (userMapper.selectOne(queryWrapper) == null) {  // 用户不存在
+            User userInsert = new User(null, user.getUsername(), passwordEncoder.encode(user.getPassword()));
+            userMapper.insert(userInsert);
+            userFileMapper.insert(UserFile.rootDir(userInsert.getId()));  // 插入后会自动注入id
+            return Result.SUCCESS;
+        } else {
+            return Result.USER_ALREADY_EXIST;
+        }
+
+        // return RegResult.FAIL;
+    }
+
+    @Override
+    public Result logout(String jwt) {
+        redisUtils.set("logout:" + jwt, "1", 24, TimeUnit.HOURS);
+        return Result.SUCCESS;
+    }
+
+
+}
