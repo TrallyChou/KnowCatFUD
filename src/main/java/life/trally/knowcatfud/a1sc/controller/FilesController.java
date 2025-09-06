@@ -1,11 +1,12 @@
 package life.trally.knowcatfud.a1sc.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
-import life.trally.knowcatfud.pojo.jwt.LoginUser;
+import life.trally.knowcatfud.a1sc.service.interfaces.FileService;
 import life.trally.knowcatfud.mapping.RequestMapping;
+import life.trally.knowcatfud.pojo.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.request.UploadOrMkdirRequest;
 import life.trally.knowcatfud.pojo.response.ListOrDownloadResponse;
-import life.trally.knowcatfud.a1sc.service.interfaces.FileService;
+import life.trally.knowcatfud.pojo.response.UploadOrMkdirResponse;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
@@ -29,14 +30,16 @@ public class FilesController {
     @Operation(summary = "上传文件或创建目录", description = "当path.type为1时创建目录，path.type为0时上传文件")
     @PostMapping("/files/{*path}")
     @PreAuthorize("hasAnyAuthority('files:upload_or_mkdir')")
-    public R<Void> uploadOrMkdir(
+    public R<UploadOrMkdirResponse> uploadOrMkdir(
             @AuthenticationPrincipal LoginUser loginUser,
             @PathVariable String path,
-            @RequestPart("file") @Nullable MultipartFile multipartFile,
             @RequestPart("info") @NonNull UploadOrMkdirRequest request   // 在客户端一定要指明Context-Type为application/json
     ) {
-        return switch (fileService.uploadOrMkdir(loginUser.getId(), path, multipartFile, requestMapping.toUserFile(request))) {
-            case FILE_SUCCESS -> R.ok("文件上传成功");
+        var r = fileService.uploadOrMkdir(loginUser.getId(), path, requestMapping.toUserFile(request));
+        return switch (r.getResult()) {
+            case FILE_SUCCESS -> R.ok(r.getData()).message("文件上传token");
+            case NEED_CHECK -> R.ok(r.getData()).message("需要文件片段");
+            case FAST_UPLOAD_SUCCESS -> R.ok("秒传成功");
             case FILE_ALREADY_EXISTS -> R.error("文件已存在");
             case FILE_UPLOAD_FAILED -> R.error("文件上传失败");
             case INVALID_ACCESS -> R.error("非法访问");
@@ -45,8 +48,21 @@ public class FilesController {
         };
     }
 
+    @Operation(summary = "按token上传文件")
+    @PostMapping("/upload/{token}")
+    public R<Void> upload(
+            @RequestPart("file") @NonNull MultipartFile multipartFile,
+            @PathVariable String token
+    ) {
+        return switch (fileService.upload(token, multipartFile)) {
+            case FILE_SUCCESS -> R.ok();
+            default -> R.error();
+        };
+    }
+
+
     // 文件列表获取 或 文件下载
-    @Operation(summary = "获取文件列表或者获取文件下载token",description = "以/结尾时认定为目录，获取文件列表，否则获取文件下载token")
+    @Operation(summary = "获取文件列表或者获取文件下载token", description = "以/结尾时认定为目录，获取文件列表，否则获取文件下载token")
     @GetMapping("/files/{*path}")
     @PreAuthorize("hasAnyAuthority('files:list')")
     public R<ListOrDownloadResponse> listOrDownload(

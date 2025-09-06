@@ -1,7 +1,9 @@
 package life.trally.knowcatfud;
 
-import life.trally.knowcatfud.pojo.entity.User;
+import life.trally.knowcatfud.ai.service.ModerationService;
 import life.trally.knowcatfud.mapper.UserMapper;
+import life.trally.knowcatfud.pojo.entity.FileShareIntroduction;
+import life.trally.knowcatfud.pojo.entity.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -38,10 +40,23 @@ class KnowCatFudApplicationTests {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
     @Test
     void passwordTest() {
         String encode = passwordEncoder.encode("pwd1");
         System.out.println(encode);
+    }
+
+    @Autowired
+    ModerationService moderationService;
+
+    @Test
+    void moderationServiceTest() {
+        System.out.println(moderationService.moderation(
+                new FileShareIntroduction(null, null,
+                        "dadwadaw",
+                        "内容内容内容内容内容内容内容内容内容dawdaf内容nm内容内容内容内容内容内容内容内容内容内容内容内容内容内容内容")
+        ));
     }
 
 

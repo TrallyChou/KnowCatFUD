@@ -10,7 +10,7 @@ import java.util.List;
 public interface FileShareMapper extends BaseMapper<FileShare> {
     @Select("""
             select uuid,file_share.type,password,expire,file_share.created_at,
-                   title,introduction,path
+                   title,introduction,path,violation,cause
             from file_share
             inner join user_file on file_id = user_file.id
             inner join share_introduction on share_introduction.id = file_share.id

@@ -2,6 +2,7 @@ package life.trally.knowcatfud.a1sc.service.impl;
 
 import life.trally.knowcatfud.a1sc.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.utils.RedisUtils;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.core.io.AbstractResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -92,17 +93,18 @@ public class FileDownloadServiceImpl implements FileDownloadService {
             this.length = length;
         }
 
+        @NotNull
         @Override
         public String getDescription() {
             return delegate.getDescription() + " [from " + start + " to " + (start + length - 1) + "]";
         }
 
+        @NotNull
         @Override
         public InputStream getInputStream() throws IOException {
             File file = delegate.getFile();
             RandomAccessFile raf = new RandomAccessFile(file, "r");
             raf.seek(start);
-
             return new InputStream() {
                 private long pos = 0;
                 private final RandomAccessFile rafInternal = raf;
@@ -135,6 +137,7 @@ public class FileDownloadServiceImpl implements FileDownloadService {
             return length;
         }
 
+        @NotNull
         @Override
         public File getFile() throws IOException {
             return delegate.getFile();

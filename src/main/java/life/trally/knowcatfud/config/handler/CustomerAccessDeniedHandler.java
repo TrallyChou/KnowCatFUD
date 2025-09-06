@@ -22,6 +22,6 @@ public class CustomerAccessDeniedHandler implements AccessDeniedHandler {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpStatus.FORBIDDEN.value());
         ServletOutputStream out = response.getOutputStream();
-        new ObjectMapper().writeValue(out, R.error(HttpStatus.FORBIDDEN.value(), accessDeniedException.getMessage()));
+        new ObjectMapper().writeValue(out, R.error(HttpStatus.FORBIDDEN.value(), "没有权限访问此内容"));
     }
 }

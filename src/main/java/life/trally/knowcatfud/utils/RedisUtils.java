@@ -43,6 +43,11 @@ public class RedisUtils {
         }
     }
 
+    public void hSetAll(String key, Map<String, String> map) {
+        redisTemplate.opsForHash().putAll(key, map);
+    }
+
+
     public String hGet(String key, String field) {
         return (String) redisTemplate.opsForHash().get(key, field);
     }

@@ -28,4 +28,6 @@ public class FileShare {
     private String password;
     private Timestamp createdAt;
     private Integer expire;
+    private Boolean violation;
+    private String cause;
 }

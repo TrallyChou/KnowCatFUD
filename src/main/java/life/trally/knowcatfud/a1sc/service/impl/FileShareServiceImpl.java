@@ -3,23 +3,23 @@ package life.trally.knowcatfud.a1sc.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
-import life.trally.knowcatfud.pojo.entity.FileShare;
-import life.trally.knowcatfud.pojo.entity.FileShareIntroduction;
-import life.trally.knowcatfud.pojo.entity.UserFile;
+import life.trally.knowcatfud.a1sc.service.ServiceResult;
+import life.trally.knowcatfud.a1sc.service.interfaces.FileDownloadService;
+import life.trally.knowcatfud.a1sc.service.interfaces.FileShareService;
 import life.trally.knowcatfud.mapper.FileShareIntroductionMapper;
 import life.trally.knowcatfud.mapper.FileShareMapper;
 import life.trally.knowcatfud.mapper.UserFileMapper;
 import life.trally.knowcatfud.mapper.UserLikesShareMapper;
 import life.trally.knowcatfud.mapping.FileShareMapping;
-import life.trally.knowcatfud.rabbitmq.messages.DeleteShareMessage;
-import life.trally.knowcatfud.rabbitmq.messages.LikeMessage;
+import life.trally.knowcatfud.pojo.entity.FileShare;
+import life.trally.knowcatfud.pojo.entity.FileShareIntroduction;
+import life.trally.knowcatfud.pojo.entity.UserFile;
 import life.trally.knowcatfud.pojo.request.ShareRequest;
 import life.trally.knowcatfud.pojo.response.FileShareSearchResponse;
 import life.trally.knowcatfud.pojo.response.GetShareResponse;
 import life.trally.knowcatfud.pojo.response.GetSharesResponse;
-import life.trally.knowcatfud.a1sc.service.ServiceResult;
-import life.trally.knowcatfud.a1sc.service.interfaces.FileDownloadService;
-import life.trally.knowcatfud.a1sc.service.interfaces.FileShareService;
+import life.trally.knowcatfud.rabbitmq.messages.DeleteShareMessage;
+import life.trally.knowcatfud.rabbitmq.messages.LikeMessage;
 import life.trally.knowcatfud.utils.JsonUtils;
 import life.trally.knowcatfud.utils.RedisUtils;
 import life.trally.knowcatfud.utils.TimeUtils;
@@ -160,12 +160,14 @@ public class FileShareServiceImpl implements FileShareService {
             // 向ES添加分享介绍，便于搜索
             // 一定要使用消息队列，否则延迟极高
             if (fileShare.getType() != FileShare.PRIVATE) {
+                // 对分享信息进行审核   审核通过会存入ES
                 rabbitTemplate.convertAndSend(
-                        "knowcatfud.share",
-                        "share",
+                        "knowcatfud.moderation",
+                        "moderation",
                         JsonUtils.serialize(fileShareIntroduction)
                 );
             }
+
             return new ServiceResult<>(Result.SUCCESS, shareUUID);
         } else {
             return new ServiceResult<>(Result.FAILED, null);
@@ -180,6 +182,16 @@ public class FileShareServiceImpl implements FileShareService {
         if (id == null) {
             return new ServiceResult<>(Result.SHARE_NOT_FOUND, null);
         }
+
+        String infoKey = "share:info:" + id;
+        // 检查是否违规
+        if (String.valueOf(true).equals(redisUtils.hGet(infoKey, "violation"))) {
+            return new ServiceResult<>(Result.VIOLATION, new GetShareResponse(
+                    true,
+                    redisUtils.hGet(infoKey, "cause"))
+            );
+        }
+
         Map<String, String> shareInfo = redisUtils.hGetAll("share:info:" + id);
         // 查询
         String expireString = shareInfo.get("expire");
@@ -206,6 +218,10 @@ public class FileShareServiceImpl implements FileShareService {
 
 
         String infoKey = "share:info:" + shareId;
+        // 检查是否违规
+        if (String.valueOf(true).equals(redisUtils.hGet(infoKey, "violation"))) {
+            return new ServiceResult<>(Result.FAILED, null);
+        }
 
         // 检查是否私密分享
         if (String.valueOf(FileShare.PRIVATE).equals(redisUtils.hGet(infoKey, "type"))) {
@@ -353,7 +369,7 @@ public class FileShareServiceImpl implements FileShareService {
         }
 
         // 分享存在，加入缓存
-        // 1.缓存uuid对应的share id
+        // 0.缓存uuid对应的share id
 
         Long shareIdLong = fileShare.getId();
         shareId = String.valueOf(shareIdLong);
@@ -361,6 +377,12 @@ public class FileShareServiceImpl implements FileShareService {
         redisUtils.set("share:uuid_id:" + shareUUID, shareId);
 
         String infoKey = "share:info:" + shareId;
+
+        // 1.分享违规
+        if (fileShare.getViolation()) {
+            redisUtils.hSet(infoKey, "violation", String.valueOf(true));
+            redisUtils.hSet(infoKey, "cause", fileShare.getCause());
+        }
 
         // 2.缓存分享信息
         redisUtils.hSet(infoKey, "file_id", String.valueOf(fileShare.getFileId()));
@@ -471,5 +493,16 @@ public class FileShareServiceImpl implements FileShareService {
         return Result.INVALID_ACCESS;
     }
 
-
+    @Override
+    public void clearCache(Long shareId) {
+        String infoKey = "share:info:" + shareId;
+        String uuid = redisUtils.hGet(infoKey, "uuid");
+        if (uuid == null) {
+            return;
+        }
+        redisUtils.delete(infoKey);
+        redisUtils.delete("share:uuid_id:" + uuid);
+        redisUtils.delete("share:likes:" + shareId);
+        redisUtils.zDel("share:ranking", uuid);
+    }
 }

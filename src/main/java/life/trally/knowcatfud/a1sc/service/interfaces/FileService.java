@@ -1,8 +1,9 @@
 package life.trally.knowcatfud.a1sc.service.interfaces;
 
+import life.trally.knowcatfud.a1sc.service.ServiceResult;
 import life.trally.knowcatfud.pojo.entity.UserFile;
 import life.trally.knowcatfud.pojo.response.ListOrDownloadResponse;
-import life.trally.knowcatfud.a1sc.service.ServiceResult;
+import life.trally.knowcatfud.pojo.response.UploadOrMkdirResponse;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,10 +20,14 @@ public interface FileService {
         FILE_UPLOAD_FAILED,
         FILE_DOWNLOAD_FAILED,
         DELETE_FAILED,
-        INVALID_ACCESS
+        INVALID_ACCESS,
+        FAST_UPLOAD_SUCCESS,
+        NEED_CHECK
     }
 
-    Result uploadOrMkdir(Long userId, String path, MultipartFile multipartFile, UserFile userFile);
+    ServiceResult<Result, UploadOrMkdirResponse> uploadOrMkdir(Long userId, String path, UserFile userFile);
+
+    Result upload(String token, MultipartFile multipartFile);
 
     ServiceResult<Result, ListOrDownloadResponse> listOrDownload(Long userId, String path);
 

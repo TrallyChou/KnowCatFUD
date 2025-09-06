@@ -28,7 +28,7 @@ public class UserFile {
     private Timestamp createdAt;
     private Integer type;
     private String hash;
-    private Integer size;
+    private Long size;
 
     public static UserFile rootDir(Long userId) {
         return new UserFile(null, userId, null, null, "/", null, TYPE_DIR, null, null);

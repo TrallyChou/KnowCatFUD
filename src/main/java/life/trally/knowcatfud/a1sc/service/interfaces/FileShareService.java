@@ -12,6 +12,8 @@ import java.util.Set;
 
 public interface FileShareService {
 
+    void clearCache(Long shareId);
+
     enum Result {
         SUCCESS,
         FAILED,
@@ -19,7 +21,8 @@ public interface FileShareService {
         ALREADY_SHARED,
         INVALID_ACCESS,
         ALREADY_LIKE,
-        NOT_LIKE
+        NOT_LIKE,
+        VIOLATION
     }
 
     ServiceResult<Result, String> share(Long userId, String path, ShareRequest shareRequest);

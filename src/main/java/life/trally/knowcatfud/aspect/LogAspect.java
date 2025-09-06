@@ -11,25 +11,22 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class LogAspect {
 
-    @Around("execution(* life.trally.knowcatfud.controller.*.*(..))")
-    public Object controllerLog(ProceedingJoinPoint joinPoint) throws Throwable {
+    @Around("execution(* life.trally.knowcatfud.a1sc.controller.*.*(..))")
+    public Object controllerLog(ProceedingJoinPoint joinPoint) {
         Object result = null;
-        if (log.isDebugEnabled()) {
-            log.debug("[Controller]{}入参: {}", joinPoint.getSignature().toShortString(), joinPoint.getArgs());
-            try {
-                result = joinPoint.proceed();
-            } catch (Throwable e) {
-                throw new RuntimeException(e);
-            }
-            log.debug("[Controller]{}结果:{}", joinPoint.getSignature().toShortString(), result);
+        log.debug("[Controller]{}入参: {}", joinPoint.getSignature().toShortString(), joinPoint.getArgs());
+        try {
+            result = joinPoint.proceed();
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
         }
+        log.debug("[Controller]{}结果:{}", joinPoint.getSignature().toShortString(), result);
         return result;
     }
 
-    @Around("execution(* life.trally.knowcatfud.service.impl.*.*(..))")
-    public Object serviceLog(ProceedingJoinPoint joinPoint) throws Throwable {
-        Object result = null;
-
+    @Around("execution(* life.trally.knowcatfud.a1sc.service.impl.*.*(..))")
+    public Object serviceLog(ProceedingJoinPoint joinPoint) {
+        Object result;
         log.debug("[Service]{}入参: {}", joinPoint.getSignature().toShortString(), joinPoint.getArgs());
         try {
             result = joinPoint.proceed();
@@ -38,7 +35,6 @@ public class LogAspect {
             return null;   // 后续将Service的Result一致更换为ServiceResult<>
         }
         log.debug("[Service]{}结果: {}", joinPoint.getSignature().toShortString(), result);
-
         return result;
     }
 

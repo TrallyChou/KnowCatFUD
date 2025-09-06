@@ -1,16 +1,20 @@
 package life.trally.knowcatfud.a1sc.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import life.trally.knowcatfud.pojo.entity.FileShare;
-import life.trally.knowcatfud.pojo.entity.UserFile;
-import life.trally.knowcatfud.mapper.FileShareMapper;
-import life.trally.knowcatfud.mapper.UserFileMapper;
-import life.trally.knowcatfud.pojo.response.ListOrDownloadResponse;
-import life.trally.knowcatfud.pojo.response.UserFileResponse;
 import life.trally.knowcatfud.a1sc.service.ServiceResult;
 import life.trally.knowcatfud.a1sc.service.interfaces.FileDownloadService;
 import life.trally.knowcatfud.a1sc.service.interfaces.FileService;
+import life.trally.knowcatfud.mapper.FileShareMapper;
+import life.trally.knowcatfud.mapper.UserFileMapper;
+import life.trally.knowcatfud.mapping.FileServiceMapping;
+import life.trally.knowcatfud.pojo.entity.FileShare;
+import life.trally.knowcatfud.pojo.entity.UserFile;
+import life.trally.knowcatfud.pojo.response.ListOrDownloadResponse;
+import life.trally.knowcatfud.pojo.response.UploadOrMkdirResponse;
+import life.trally.knowcatfud.pojo.response.UserFileResponse;
+import life.trally.knowcatfud.pojo.service.UserFileUploading;
 import life.trally.knowcatfud.utils.FileUtils;
+import life.trally.knowcatfud.utils.JsonUtils;
 import life.trally.knowcatfud.utils.RedisUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -20,11 +24,16 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -35,25 +44,41 @@ public class FileServiceImpl implements FileService {
     private final FileDownloadService fileDownloadService;
     private final RedisUtils redisUtil;
     private final FileShareMapper fileShareMapper;
+    private final FileServiceMapping fileServiceMapping;
 
-    public FileServiceImpl(UserFileMapper userFileMapper, FileDownloadService fileDownloadService, RedisUtils redisUtil, FileShareMapper fileShareMapper) {
+    public FileServiceImpl(UserFileMapper userFileMapper, FileDownloadService fileDownloadService, RedisUtils redisUtil, FileShareMapper fileShareMapper, FileServiceMapping fileServiceMapping) {
         this.userFileMapper = userFileMapper;
         this.fileDownloadService = fileDownloadService;
         this.redisUtil = redisUtil;
         this.fileShareMapper = fileShareMapper;
+        this.fileServiceMapping = fileServiceMapping;
     }
 
     /**
      * 文件上传和创建目录
      *
-     * @param userId        用户id
-     * @param path          用户文件目录
-     * @param multipartFile 文件数据
-     * @param userFile      用户文件信息
+     * @param userId   用户id
+     * @param path     用户文件目录
+     * @param userFile 用户文件信息
      * @return 处理结果状态枚举
      */
     @Override
-    public Result uploadOrMkdir(Long userId, String path, MultipartFile multipartFile, UserFile userFile) {
+    public ServiceResult<Result, UploadOrMkdirResponse> uploadOrMkdir(
+            Long userId,
+            String path,
+            UserFile userFile) {
+
+        String uploadToken = redisUtil.get("file:upload:token:" + path);
+        if (uploadToken != null) {
+            UserFileUploading userFileUploading = JsonUtils.deserialize(redisUtil.get("file:upload:uploading:" + uploadToken), UserFileUploading.class);
+
+            return new ServiceResult<>(
+                    Result.FILE_SUCCESS,
+                    new UploadOrMkdirResponse(uploadToken,
+                            userFileUploading.getStartByte()
+                    )
+            );
+        }
 
         userFile.setUserId(userId);
         userFile.setPath(path);
@@ -61,7 +86,7 @@ public class FileServiceImpl implements FileService {
         userFile.setCreatedAt(null);
 
         if (userFile.getType() == null) {
-            return Result.INVALID_ACCESS;
+            return new ServiceResult<>(Result.INVALID_ACCESS, null);
         }
 
         // 查询是否重名
@@ -70,7 +95,7 @@ public class FileServiceImpl implements FileService {
         UserFile oldUserFile = userFileMapper.selectOne(qw);
 
         if (oldUserFile != null) {
-            return Result.FILE_ALREADY_EXISTS;
+            return new ServiceResult<>(Result.FILE_ALREADY_EXISTS, null);
         }
 
         // 要求父目录存在
@@ -87,12 +112,11 @@ public class FileServiceImpl implements FileService {
 
         UserFile parentPath = userFileMapper.selectOne(qw1);
         if (parentPath == null) {
-            return Result.FILE_UPLOAD_FAILED;
+            return new ServiceResult<>(Result.FILE_UPLOAD_FAILED, null);
         }
 
         // 目录存在
         userFile.setParent(parent);
-
 
         // 如果是目录，则只需简单添加
         if (userFile.getType() == UserFile.TYPE_DIR) {
@@ -100,7 +124,7 @@ public class FileServiceImpl implements FileService {
             // 要求目录以/结尾
 
             if (!userFile.getPath().endsWith("/")) {
-                return Result.FILE_UPLOAD_FAILED;
+                return new ServiceResult<>(Result.FILE_UPLOAD_FAILED, null);
             }
 
             userFile.setFilename(null);
@@ -109,31 +133,110 @@ public class FileServiceImpl implements FileService {
 
             userFileMapper.insert(userFile);
 
-            return Result.DIR_SUCCESS;
+            return new ServiceResult<>(Result.DIR_SUCCESS, null);
         }
-
 
         // 如果是文件，要求文件名不以/结尾：
         if (userFile.getPath().endsWith("/")) {
-            return Result.FILE_UPLOAD_FAILED;
+            return new ServiceResult<>(Result.FILE_UPLOAD_FAILED, null);
         }
 
         // 记录文件名，方便查找
         userFile.setFilename(StringUtils.getFilename(path));
 
+        // 保存时文件名为 哈希+文件大小
+        Long size = userFile.getSize();
+        String hash = userFile.getHash();
+        Path storagePath = Path.of("files/", hash + size);
+        if (Files.exists(storagePath)) {
+            if (size < 1024) { // 小于1KB的文件秒传不验证
+                userFileMapper.insert(userFile);  // 已经存在则只需要记录
+                return new ServiceResult<>(Result.FAST_UPLOAD_SUCCESS, null);
+            } else {
+                // 生成文件上传token
+                String token = UUID.randomUUID().toString();
 
-        if (multipartFile == null || userFile.getSize() != multipartFile.getSize()) {
+                // 随机验证1KB内容
+                long start = ThreadLocalRandom.current().nextLong(0, size - 1024);
+                var r = new UploadOrMkdirResponse(token, start);
+                redisUtil.set("file:upload:token:" + path, token, 24, TimeUnit.HOURS);
+                redisUtil.set("file:upload:uploading:" + token, JsonUtils.serialize(
+                        fileServiceMapping.toUserFileUploading(userFile, r)
+                ), 24, TimeUnit.HOURS);
+
+                return new ServiceResult<>(Result.NEED_CHECK, r);
+            }
+        }
+
+        // 生成文件上传token并缓存记录
+        String token = UUID.randomUUID().toString();
+        redisUtil.set("file:upload:token:" + path, token, 24, TimeUnit.HOURS);
+        redisUtil.set("file:upload:uploading:" + token, JsonUtils.serialize(
+                        fileServiceMapping.toUserFileUploading(userFile)),
+                24, TimeUnit.HOURS);
+        return new ServiceResult<>(Result.FILE_SUCCESS, new UploadOrMkdirResponse(token, null));
+    }
+
+    /**
+     * @param token         token
+     * @param multipartFile 文件
+     * @return Result
+     */
+
+    @Override
+    public Result upload(String token, MultipartFile multipartFile) {
+        UserFileUploading userFileUploading;
+        UserFile userFile;
+        try {
+            userFileUploading = JsonUtils.deserialize(
+                    redisUtil.get("file:upload:uploading:" + token), UserFileUploading.class
+            );
+            redisUtil.delete("file:upload:uploading:" + token);   // token只允许使用一次
+            redisUtil.delete("file:upload:token:" + userFileUploading.getPath());
+        } catch (Exception e) {
             return Result.FILE_UPLOAD_FAILED;
         }
 
+        userFile = fileServiceMapping.toUserFile(userFileUploading);
         // 保存时文件名为 哈希+文件大小
         Path cachePath = Path.of("files/cache", userFile.getHash() + userFile.getSize());
         Path storagePath = Path.of("files/", userFile.getHash() + userFile.getSize());
-        if (Files.exists(storagePath)) {
-            // TODO: 抽检文件，防止已存储文件泄露
-            userFileMapper.insert(userFile);  // 已经存在则只需要记录
-            return Result.FILE_SUCCESS;
+
+        // 秒传验证
+        Long startByte = userFileUploading.getStartByte();
+        if (startByte != null) {
+            if (multipartFile.getSize() != 1024) {
+                return Result.FILE_UPLOAD_FAILED;
+            }
+
+            try (FileChannel channel = FileChannel.open(storagePath, StandardOpenOption.READ)) {
+                byte[] uploadBytes = multipartFile.getBytes();
+                byte[] localBytes = new byte[1024];
+                ByteBuffer buffer = ByteBuffer.allocate(1024);
+                channel.position(startByte);
+                int bytesRead = channel.read(buffer);
+                if (bytesRead != 1024) {
+                    return Result.FILE_UPLOAD_FAILED;
+                }
+                buffer.flip();
+                buffer.get(localBytes);
+
+                if (Arrays.equals(localBytes, uploadBytes)) { // 验证通过
+                    userFileMapper.insert(userFile);
+                    return Result.FILE_SUCCESS;  // 上传成功
+                }
+
+            } catch (Exception ignored) {
+
+            }
+
+            return Result.FILE_UPLOAD_FAILED;
         }
+
+        if (multipartFile == null || userFileUploading.getSize() != multipartFile.getSize()) {
+            return Result.FILE_UPLOAD_FAILED;
+        }
+
 
         // 下面保存文件
         try {
@@ -144,7 +247,7 @@ public class FileServiceImpl implements FileService {
 
             // 检查文件哈希和大小 存在大小写问题，后面存储时统一转换为由nioSHA256得到的HASH
             if (!fileRealHash.equalsIgnoreCase(userFile.getHash())
-                    || Files.size(cachePath) != userFile.getSize()) {
+                || Files.size(cachePath) != userFile.getSize()) {
                 Files.delete(cachePath);
                 return Result.FILE_UPLOAD_FAILED;
             }
@@ -158,7 +261,6 @@ public class FileServiceImpl implements FileService {
             return Result.FILE_UPLOAD_FAILED;
         }
     }
-
 
     /**
      * 文件列表获取、文件下载token获取

@@ -31,10 +31,9 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 
         String authorization = request.getHeader("Authorization"); // token
 //        System.out.println(authorization);
-
         try {
             if (redisUtils.exists("logout:" + authorization)) {
-                throw new RuntimeException();
+                filterChain.doFilter(request, response);
             }
             Claims claims = JwtUtils.parseToken(authorization);
             String loginUserStr = claims.getSubject();

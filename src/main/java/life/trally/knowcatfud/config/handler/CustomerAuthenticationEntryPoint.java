@@ -21,6 +21,6 @@ public class CustomerAuthenticationEntryPoint implements AuthenticationEntryPoin
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         ServletOutputStream out = response.getOutputStream();
-        new ObjectMapper().writeValue(out, R.error(HttpStatus.UNAUTHORIZED.value(), authException.getMessage()));
+        new ObjectMapper().writeValue(out, R.error(HttpStatus.UNAUTHORIZED.value(), "访问出错"));
     }
 }

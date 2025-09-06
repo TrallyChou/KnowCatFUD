@@ -1,11 +1,11 @@
 package life.trally.knowcatfud.a1sc.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import life.trally.knowcatfud.a1sc.service.ServiceResult;
+import life.trally.knowcatfud.a1sc.service.interfaces.FileShareService;
 import life.trally.knowcatfud.pojo.jwt.LoginUser;
 import life.trally.knowcatfud.pojo.request.ShareRequest;
 import life.trally.knowcatfud.pojo.response.*;
-import life.trally.knowcatfud.a1sc.service.ServiceResult;
-import life.trally.knowcatfud.a1sc.service.interfaces.FileShareService;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
@@ -42,6 +42,8 @@ public class FilesShareController {
             case INVALID_ACCESS -> R.error("非法访问");
             default -> R.error("分享失败");
         };
+
+
     }
 
     // 获取
@@ -56,6 +58,7 @@ public class FilesShareController {
         return switch (r.getResult()) {
             case SUCCESS -> R.ok(r.getData());
             case SHARE_NOT_FOUND -> R.error("分享不存在");
+            case VIOLATION -> R.error("违规分享");
             default -> R.error("未知错误");
         };
 
